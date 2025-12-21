@@ -2246,7 +2246,21 @@ export default function App() {
             await (window.gapi ? Promise.resolve() : new Promise((resolve) => { const script = document.createElement('script'); script.src = 'https://apis.google.com/js/api.js'; script.onload = resolve; document.body.appendChild(script); }));
             await (window.google ? Promise.resolve() : new Promise((resolve) => { const script = document.createElement('script'); script.src = 'https://accounts.google.com/gsi/client'; script.onload = resolve; document.body.appendChild(script); }));
             window.gapi.load('client', async () => { if (!GOOGLE_API_KEY) return; await window.gapi.client.init({ apiKey: GOOGLE_API_KEY, discoveryDocs: DISCOVERY_DOCS }); setIsGapiLoaded(true); });
-            if (GOOGLE_CLIENT_ID) { const client = window.google.accounts.oauth2.initTokenClient({ client_id: GOOGLE_CLIENT_ID, scope: SCOPES, callback: (tokenResponse) => { if (tokenResponse && tokenResponse.access_token) { setIsLoggedIn(true); fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: `Bearer ${tokenResponse.access_token}` } }).then(res => res.json()).then(data => setUser(data)).catch(e => console.error(e)); } }, }); setTokenClient(client); setIsGisLoaded(true); }
+            if (GOOGLE_CLIENT_ID) { 
+                const client = window.google.accounts.oauth2.initTokenClient({ 
+                    client_id: GOOGLE_CLIENT_ID, 
+                    scope: SCOPES, 
+                    callback: (tokenResponse) => { 
+                        if (tokenResponse && tokenResponse.access_token) { 
+                            setIsLoggedIn(true); 
+                            
+                            // 👇👇👇【請手動加入這段關鍵修正】👇👇👇
+                            // 將登入取得的 Token 設定給 GAPI client，讓 Drive API 可以使用
+                            if (window.gapi && window.gapi.client) {
+                                window.gapi.client.setToken(tokenResponse);
+                            }
+                            // 👆👆👆【加入到這裡】👆👆👆; 
+                            fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: `Bearer ${tokenResponse.access_token}` } }).then(res => res.json()).then(data => setUser(data)).catch(e => console.error(e)); } }, }); setTokenClient(client); setIsGisLoaded(true); }
         } catch (error) { console.error("Google API Init Failed:", error); }
     };
     initGoogle();
