@@ -1621,7 +1621,30 @@ const ArmyTagDesigner = ({ user, isLoggedIn, handleLogin, isGapiLoaded, persiste
   const handleMopaSimulation = async () => { if (!selectedLayer || selectedLayer.type !== 'image') return; setIsProcessingBg(true); if (!selectedLayer.originalContent) { updateLayer(selectedLayer.id, { originalContent: selectedLayer.content }); } const source = selectedLayer.originalContent || selectedLayer.content; const newContent = await simulateMopaColors(source); updateLayer(selectedLayer.id, { content: newContent, isMopaSimulated: true }); setIsProcessingBg(false); };
   const handleRevertMopa = () => { if (!selectedLayer || selectedLayer.type !== 'image' || !selectedLayer.originalContent) return; updateLayer(selectedLayer.id, { content: selectedLayer.originalContent, isMopaSimulated: false }); };
   const addTextLayer = () => { const newId = `text-${Date.now()}`; setLayers(prev => [...prev, { id: newId, type: 'text', content: 'NEW TEXT', x: 0, y: 0, scale: 1, rotation: 0, colorMode: 'solid', color: '#1f2937', gradientStart: '#1e3a8a', gradientEnd: '#dc2626', gradientAngle: 90, fontFamily: '"Inter", sans-serif', cropShape: 'none', opacity: 1, flipX: 1, flipY: 1, filter: 'none' }]); setSelectedId(newId); };
-  const addImageLayer = (file) => { const reader = new FileReader(); reader.onloadend = () => { const img = new Image(); img.onload = () => { const layout = calculateFillScale(img.width, img.height); const newId = `img-${Date.now()}`; setLayers(prev => [...prev, { id: newId, type: 'image', content: reader.result, originalContent: reader.result, x: 0, y: 0, rotation: 0, scale: layout.scale, width: layout.width, height: layout.height, cropShape: 'none', cropX: 0, cropY: 0, cropScale: 1, opacity: 1, flipX: 1, flipY: 1, filter: 'none' }]); setSelectedId(newId); }; img.src = reader.result; }; reader.readAsDataURL(file); };
+  const addImageLayer = (file) => { 
+      const reader = new FileReader(); 
+      reader.onloadend = async () => { 
+          // 👇👇👇【關鍵修正】先壓縮圖片再放入圖層，避免檔案過大導致儲存失敗 👇👇👇
+          const compressed = await compressImage(reader.result, 1024); 
+          // 👆👆👆【修正結束】👆👆👆
+          
+          const img = new Image(); 
+          img.onload = () => { 
+              const layout = calculateFillScale(img.width, img.height); 
+              const newId = `img-${Date.now()}`; 
+              setLayers(prev => [...prev, { 
+                  id: newId, 
+                  type: 'image', 
+                  content: compressed, // 使用壓縮後的圖片資料
+                  originalContent: compressed, 
+                  x: 0, y: 0, rotation: 0, scale: layout.scale, width: layout.width, height: layout.height, cropShape: 'none', cropX: 0, cropY: 0, cropScale: 1, opacity: 1, flipX: 1, flipY: 1, filter: 'none' 
+              }]); 
+              setSelectedId(newId); 
+          }; 
+          img.src = compressed; 
+      }; 
+      reader.readAsDataURL(file); 
+  };
   const deleteLayer = (id) => { setLayers(prev => prev.filter(l => l.id !== id)); if (selectedId === id) setSelectedId(null); };
   const moveLayerOrder = (id, direction) => { setLayers(prev => { const idx = prev.findIndex(l => l.id === id); if (idx === -1) return prev; if (direction === 'up' && idx === prev.length - 1) return prev; if (direction === 'down' && idx === 0) return prev; const newLayers = [...prev]; const swapIdx = direction === 'up' ? idx + 1 : idx - 1; [newLayers[idx], newLayers[swapIdx]] = [newLayers[swapIdx], newLayers[idx]]; return newLayers; }); };
   
