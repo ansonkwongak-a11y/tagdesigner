@@ -3,8 +3,13 @@ import * as THREE from 'three';
 
 // --- 🔑 設定區 ---
 const GOOGLE_CLIENT_ID = "1083951648656-u9n474lm8q7de43dlu34tqr8n9sfgoda.apps.googleusercontent.com"; 
-const GOOGLE_API_KEY = "AIzaSyDed4bTsrURoQd9_LhyR3OEs30UhKIzEbQ"; 
-// 將 apiKey 直接指向 GOOGLE_API_KEY，確保 AI 功能讀取到正確的 Key
+// 2. Google API Key (Gemini & GAPI)
+// 👇👇👇【安全修正】優先讀取環境變數，避免 Key 再次外洩 👇👇👇
+const GOOGLE_API_KEY = 
+  (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_GOOGLE_API_KEY) || // Vite 專用
+  (typeof process !== 'undefined' && process.env && process.env.REACT_APP_GOOGLE_API_KEY) || // CRA 專用
+  ""; // ⚠️ 請保持為空字串，不要將 Key 寫在這裡，除非您的 GitHub 是 Private 的
+
 const apiKey = GOOGLE_API_KEY; 
 
 // --- 內部圖示元件庫 (Internal Icons) ---
