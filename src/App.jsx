@@ -37,6 +37,9 @@ const Move = (p) => <IconBase {...p}><polyline points="5 9 2 12 5 15"/><polyline
 const RotateCw = (p) => <IconBase {...p}><path d="M21 12a9 9 0 1 1-9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></IconBase>;
 const ArrowUp = (p) => <IconBase {...p}><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></IconBase>;
 const ArrowDown = (p) => <IconBase {...p}><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></IconBase>;
+// --- 👇👇👇 請補上這行遺失的圖示定義 👇👇👇 ---
+const ChevronDown = (p) => <IconBase {...p}><polyline points="6 9 12 15 18 9"/></IconBase>;
+// --- 👆👆👆 補上這行 👆👆👆 ---
 const Type = (p) => <IconBase {...p}><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></IconBase>;
 const HandIcon = (p) => <IconBase {...p}><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></IconBase>;
 const Save = (p) => <IconBase {...p}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></IconBase>;
@@ -85,7 +88,7 @@ const Sliders = (p) => <IconBase {...p}><line x1="4" y1="21" x2="4" y2="14"/><li
 const Upload = (p) => <IconBase {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></IconBase>;
 const UserPlus = (p) => <IconBase {...p}><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></IconBase>;
 const FileImage = (p) => <IconBase {...p}><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></IconBase>;
-
+const HelpCircle = (p) => <IconBase {...p}><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></IconBase>;
 // --- 應用程式常數 ---
 const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
 const SCOPES = "https://www.googleapis.com/auth/drive.file";
@@ -295,7 +298,7 @@ const calculateFillScale = (imgWidth, imgHeight) => {
 };
 
 // --- 新增：圖片壓縮 helper，解決圖片過大導致沒反應的問題 ---
-const compressImage = (base64Str, maxWidth = 512) => {
+const compressImage = (base64Str, maxWidth = 1024) => {
     return new Promise((resolve) => {
         const img = new Image();
         img.src = base64Str;
@@ -311,13 +314,65 @@ const compressImage = (base64Str, maxWidth = 512) => {
             canvas.height = height;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, width, height);
-            resolve(canvas.toDataURL('image/jpeg', 0.8)); // 壓縮為 JPEG 80% 品質
+            resolve(canvas.toDataURL('image/jpeg', 0.9)); // 壓縮為 JPEG 80% 品質
         };
         // 若載入失敗，直接回傳原圖，避免流程卡死
         img.onerror = () => { console.warn("Image compression failed, using original."); resolve(base64Str); };
     });
 };
+// --- 👇👇👇 請補上這段遺失的程式碼 👇👇👇 ---
 
+// 強制將圖片轉為 16:9 寬版 (補黑邊/延伸/升頻)
+const convertToLandscape = (base64Str) => {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.src = base64Str;
+        img.onload = () => {
+            const aspect = 16 / 9;
+            
+            // 1. 初始計算：基於原圖尺寸
+            let targetHeight = img.height;
+            let targetWidth = Math.round(img.height * aspect);
+            
+            // 如果原圖比 16:9 更寬，以寬度為準
+            if (img.width > targetWidth) {
+                targetWidth = img.width;
+                targetHeight = Math.round(img.width / aspect);
+            }
+
+            // 2. 強制升頻 (Upscaling) 確保畫質
+            if (targetHeight < 1080) {
+                const scale = 1080 / targetHeight;
+                targetHeight = 1080;
+                targetWidth = Math.round(targetWidth * scale);
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
+            const ctx = canvas.getContext('2d');
+            
+            // 填滿黑色背景 (讓 AI 知道這是要延伸的區域)
+            ctx.fillStyle = '#000000'; 
+            ctx.fillRect(0, 0, targetWidth, targetHeight);
+            
+            // 3. 將原圖置中繪製
+            const ratio = Math.min(targetWidth / img.width, targetHeight / img.height);
+            const drawW = img.width * ratio;
+            const drawH = img.height * ratio;
+            const x = (targetWidth - drawW) / 2;
+            const y = (targetHeight - drawH) / 2;
+            
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(img, x, y, drawW, drawH);
+            
+            resolve(canvas.toDataURL('image/jpeg', 0.95));
+        };
+        img.onerror = () => resolve(base64Str);
+    });
+};
+// --- 👆👆👆 補上這段 👆👆👆 ---
 // --- API Calls ---
 // 自動選擇最佳 Key: 優先使用 apiKey, 若無則嘗試 GOOGLE_API_KEY
 // 【修改】自動選擇最佳 Key: 優先使用「使用者輸入的 Key」，其次才是系統預設 Key
@@ -359,7 +414,8 @@ const resetUserKey = () => {
     window.location.reload();
 };
 
-const callGeminiImage = async (prompt) => {
+// 【修改】增加 aspectRatio 參數，預設為 "1:1"
+const callGeminiImage = async (prompt, aspectRatio = "1:1") => {
     try {
         const key = getEffectiveKey();
         if (!key) { alert("錯誤：API Key 未設定！\n請確認程式碼中的 apiKey 或 GOOGLE_API_KEY 變數。"); return null; }
@@ -368,7 +424,8 @@ const callGeminiImage = async (prompt) => {
             {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ instances: [{ prompt: prompt }], parameters: { sampleCount: 1 } }),
+                // 【修改】將 aspectRatio 傳入 parameters
+            body: JSON.stringify({ instances: [{ prompt: prompt }], parameters: { sampleCount: 1, aspectRatio: aspectRatio } }),
             }
         );
         if (!response.ok) { const errorText = await response.text(); throw new Error(`API Error ${response.status}: ${errorText}`); }
@@ -404,7 +461,7 @@ const callGeminiImg2Img = async (prompt, base64Image) => {
         if (!key) { alert("錯誤：API Key 未設定！\n請確認程式碼中的 apiKey 或 GOOGLE_API_KEY 變數。"); return null; }
         
         // 1. 壓縮圖片，避免 Payload 過大 (調整至 1024px 寬度以加快速度)
-        const compressedImage = await compressImage(base64Image, 800);
+        const compressedImage = await compressImage(base64Image, 2048);
         
         // 2. 處理 MIME Type
         let mimeType = "image/jpeg";
@@ -456,7 +513,46 @@ const callGeminiImg2Img = async (prompt, base64Image) => {
         return null; 
     }
 };
+// --- 新增：雙圖合成 API (底圖 + 設計圖) ---
+const callGeminiComposite = async (prompt, baseImage, designImage) => {
+    try {
+        const key = getEffectiveKey();
+        if (!key) { alert("錯誤：API Key 未設定！"); return null; }
+        
+        // 分別壓縮兩張圖片
+        // 【修改 1】提高解析度至 1280 (HD)，解決模糊問題
+        const compressedBase = await compressImage(baseImage, 2048);
+        const compressedDesign = await compressImage(designImage, 1024);
+        
+        const getBase64 = (dataUrl) => dataUrl.split(',')[1];
 
+        const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${key}`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [
+                            { text: prompt },
+                            { inlineData: { mimeType: "image/jpeg", data: getBase64(compressedBase) } }, // 第一張：人物底圖
+                            { inlineData: { mimeType: "image/jpeg", data: getBase64(compressedDesign) } } // 第二張：設計圖
+                        ]
+                    }],
+                    generationConfig: { responseModalities: ['IMAGE'] }
+                }),
+            }
+        );
+        if (!response.ok) throw new Error(`API Error ${response.status}`);
+        const result = await response.json();
+        const outputBase64 = result.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
+        if (outputBase64) return `data:image/png;base64,${outputBase64}`;
+        throw new Error("生成失敗，無影像資料");
+    } catch (error) { 
+        console.error("Gemini Composite Error:", error); 
+        return null; 
+    }
+};
 const callGeminiText = async (prompt) => {
     try {
         const key = getEffectiveKey();
@@ -724,7 +820,7 @@ const WearableSimulator = ({ designerState }) => {
     // 新增：全身/半身切換
     const [shotType, setShotType] = useState('half'); // 'half' or 'full'
     const [necklaceLength, setNecklaceLength] = useState(0);
-    const [autoScale, setAutoScale] = useState(1.0);
+    const [autoScale, setAutoScale] = useState(0.4);
     const [faceImage, setFaceImage] = useState(null); 
     const [designImgUrl, setDesignImgUrl] = useState(null);
     const [overlayConfig, setOverlayConfig] = useState({ x: 0, y: 65, scale: 0.35, rotation: 0, opacity: 0.92, blendMode: 'multiply' });
@@ -745,22 +841,31 @@ const WearableSimulator = ({ designerState }) => {
         localStorage.setItem('USER_GEMINI_KEY', userKey.trim());
         alert("✅ API Key 已儲存！請再次點擊生成按鈕。");
     };
-    // --- 重置功能 ---
+    // --- 重置功能 (Clean Version) ---
     const handleReset = () => {
+        // 1. 清除顯示相關
         setGeneratedImage(null);
         setDesignImgUrl(null);
-        setFaceImage(null);
+        setPipelineStatus('');
+        
+        // 2. 清除輸入相關 (如果您希望重置時保留自拍照片，請註解掉下面這行 setFaceImage)
+        setFaceImage(null); 
+        
+        // 3. 重置狀態旗標
         setIsGenerating(false);
         setIsBlending(false);
-        setPipelineStatus('');
-        setOverlayConfig({ x: 0, y: 65, scale: 0.35, rotation: 0, opacity: 0.92, blendMode: 'multiply' });
-        // 【修改 2】重置時清空快取與鎖定狀態
+        
+        // 4. 【關鍵】清除快取與鎖定 (確保下次生成會重新跑 16:9 流程)
         setBaseSceneCache(null);
         setLockModel(false);
+        
+        // 5. 重置手動調整參數 (雖然現在用不到了，但保留作為預設值)
+        setOverlayConfig({ x: 0, y: 65, scale: 0.35, rotation: 0, opacity: 0.92, blendMode: 'multiply' });
     };
 
     // --- Helper: 合成圖片 (用於自動化流程) ---
-    const compositeImagesAuto = async (bgUrl, designUrl, currentShotType, overrideConfig = null) => {
+    // 【修改】加入 turnDirection 參數，接收人像的轉向資訊
+    const compositeImagesAuto = async (bgUrl, designUrl, currentShotType, overrideConfig = null, turnDirection = null) => {
         if (!bgUrl || !designUrl) return null;
         
         const bgImg = new Image(); bgImg.src = bgUrl; await new Promise(r => bgImg.onload = r);
@@ -774,11 +879,11 @@ const WearableSimulator = ({ designerState }) => {
         // 1. 繪製背景 (模特兒)
         ctx.drawImage(bgImg, 0, 0);
 
-        // --- 移除智慧膚色取樣與飾品遮瑕筆刷 ---
-        // (原本的 skinColor 取樣與繪製模糊三角形的程式碼已移除)
-
         // 2. 自動定位邏輯
-        let targetX = canvas.width * 0.5; 
+        // 【修改】加入隨機水平偏移 (Natural Sway)，模擬人體自然的重心曲線
+        // 讓軍牌不要死板地掛在正中央，而是隨機左右偏移 ±3%
+        const swayOffset = (Math.random() - 0.5) * (canvas.width * 0.06); 
+        let targetX = (canvas.width * 0.5) + swayOffset;
         
         // 根據 Shot Type 決定大小和位置
         let targetY, targetWidth;
@@ -816,7 +921,10 @@ const WearableSimulator = ({ designerState }) => {
 
             rotation = overrideConfig.rotation || 0;
         } else {
-             rotation = (Math.random() - 0.5) * 3;
+             // 【修改】回歸垂直重力 (Vertical Gravity)。
+             // 因為我們無法預測人像傾斜角度，先保持垂直，再交給 AI 在 Stage 3 根據畫面微調。
+             // 只保留極微小的自然擺動 (±1度)。
+             rotation = (Math.random() - 0.5) * 2;
         }
         
         // 保持 29mm:50mm 的長寬比
@@ -824,66 +932,45 @@ const WearableSimulator = ({ designerState }) => {
         const drawW = targetWidth;
         const drawH = drawW / tagAspect;
 
-        // --- 繪製虛擬鍊條 (Chain Guide) - 移除模糊，改為銳利線條 ---
-        ctx.save();
-        ctx.beginPath();
-        ctx.strokeStyle = '#d1d5db'; // 銀灰色
-        ctx.lineWidth = drawW * 0.08; // 鍊條寬度
-        ctx.lineCap = 'round';
+        // --- 【步驟 1】計算物理幾何座標 ---
+        const rad = rotation * Math.PI / 180;
+        const holeOffsetY = -drawH * 0.42; // 孔洞中心 (相對於軍牌中心)
+        const ringRadius = drawW * 0.12;   // 連接環半徑
         
-        const chainSag = 0.8 + (Math.random() * 0.1);
+        // 計算「連接環」的頂端位置 (這是鍊子要匯聚的點)
+        // 邏輯：從軍牌中心 -> 往上到孔洞 -> 再往上到環的頂端
+        const localRingTopY = holeOffsetY - (ringRadius * 1.5); 
+        
+        // 將這個局部座標轉換為全域 Canvas 座標 (考慮旋轉)
+        const chainConnectX = targetX + (0 * Math.cos(rad) - localRingTopY * Math.sin(rad));
+        const chainConnectY = targetY + (0 * Math.sin(rad) + localRingTopY * Math.cos(rad));
 
-        // 計算肩膀連接點 (根據全身/半身調整)
-        const shoulderY = currentShotType === 'full' ? canvas.height * 0.18 : canvas.height * 0.42;
-        const leftShoulderX = canvas.width * 0.38;
-        const rightShoulderX = canvas.width * 0.62;
+        // --- 【步驟 2】虛擬鍊條 (已移除) ---
+        // 修改：我們不再畫假鍊子，改由 AI 在下一階段負責將軍牌「掛」在模特兒原本的鍊子上
+        
+        // 雖然不畫線，但我們保留這些變數計算，因為下面的程式碼可能會有依賴 (雖然後面好像沒用到，但保留以防萬一)
+        const baseChainScale = currentShotType === 'full' ? baseFullRatio : baseHalfRatio;
+        const fixedChainWidth = canvas.width * baseChainScale; 
+        
+        // (這裡原本是 draw chain 的程式碼，現在留空)
 
-        // 左鍊
-        ctx.moveTo(targetX - drawW*0.1, targetY - drawH*0.4); 
-        ctx.quadraticCurveTo(
-            targetX - drawW*0.6, targetY - drawH * chainSag, 
-            leftShoulderX, shoulderY 
-        );
-        
-        // 右鍊
-        ctx.moveTo(targetX + drawW*0.1, targetY - drawH*0.4); 
-        ctx.quadraticCurveTo(
-            targetX + drawW*0.6, targetY - drawH * chainSag, 
-            rightShoulderX, shoulderY 
-        );
-        
-        // 移除模糊陰影
-        ctx.stroke();
-        
-        // 金屬亮面 (更銳利)
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = drawW * 0.03;
-        ctx.globalAlpha = 0.8; // 提高不透明度
-        ctx.shadowBlur = 0;
-        ctx.stroke();
-        ctx.restore();
-
-        // 3. 繪製軍牌本體 - 移除柔和邊緣補丁
+        // --- 【步驟 3】繪製軍牌 (Tag) ---
         ctx.save();
         ctx.translate(targetX, targetY);
-        ctx.rotate(rotation * Math.PI / 180);
+        ctx.rotate(rad); // 使用計算好的弧度
 
-        // --- 【修改 1】加入這三行陰影設定 ---
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.6)'; // 深色陰影
-        ctx.shadowBlur = drawW * 0.15;          // 根據大小調整模糊
-        ctx.shadowOffsetY = drawW * 0.05;       // 稍微向下偏移
-        // ----------------------------------
+        // 針對極小尺寸強化陰影
+        const isMicro = drawW < 50; 
+        ctx.shadowColor = isMicro ? 'rgba(0, 0, 0, 0.9)' : 'rgba(0, 0, 0, 0.6)';
+        ctx.shadowBlur = isMicro ? 2 : drawW * 0.15;
+        ctx.shadowOffsetY = isMicro ? 5 : drawW * 0.05;
 
-        // 直接繪製設計圖，不使用模糊底座
+        // 繪製軍牌本體
         ctx.globalAlpha = 1.0; 
         ctx.globalCompositeOperation = 'source-over'; 
+        ctx.fillStyle = '#B0B0B0'; 
         
-        // 為了確保軍牌本身有金屬底色，我們在繪製設計圖前先畫一個銳利的底
-        ctx.fillStyle = '#B0B0B0'; // 金屬底色
-        
-        // 使用簡單的矩形或圓角矩形作為底，不加模糊
-        // 確保形狀是標準軍牌
-        const r = drawW * 0.15; // 圓角
+        const r = drawW * 0.15;
         const x = -drawW/2;
         const y = -drawH/2;
         
@@ -892,9 +979,38 @@ const WearableSimulator = ({ designerState }) => {
         ctx.closePath();
         ctx.fill();
 
-        // 繪製設計圖內容
+        // 繪製設計圖
         ctx.drawImage(designImg, -drawW/2, -drawH/2, drawW, drawH);
+
+        // --- 【步驟 4】繪製 Jump Ring (物理連接結構) ---
+        // 這個環會壓在軍牌孔洞上，並且讓鍊子看起來穿過它
         
+        // 環的位置：孔洞中心再往上一點點，讓它扣住邊緣
+        const ringCy = holeOffsetY - (ringRadius * 0.8);
+        
+        // 1. 繪製環的「後方」陰影 (增加立體感)
+        ctx.beginPath();
+        ctx.arc(0, ringCy, ringRadius, 0, Math.PI * 2);
+        ctx.lineWidth = drawW * 0.04; 
+        ctx.strokeStyle = '#6b7280'; // 深灰色陰影
+        ctx.stroke();
+
+        // 2. 繪製環的「金屬本體」
+        ctx.beginPath();
+        ctx.arc(0, ringCy, ringRadius, 0, Math.PI * 2);
+        ctx.lineWidth = drawW * 0.03; 
+        ctx.strokeStyle = '#d1d5db'; // 銀色主體
+        ctx.stroke();
+        
+        // 3. 繪製環的「高光」 (讓它看起來像金屬圈)
+        ctx.beginPath();
+        // 只畫左上角的高光
+        ctx.arc(0, ringCy, ringRadius, Math.PI * 0.8, Math.PI * 1.5); 
+        ctx.strokeStyle = '#ffffff'; 
+        ctx.lineWidth = drawW * 0.02;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
         ctx.restore();
         
         return canvas.toDataURL('image/png', 1.0);
@@ -963,178 +1079,200 @@ const WearableSimulator = ({ designerState }) => {
         return canvas.toDataURL('image/png', 1.0);
     };
 
-    // --- 全新核心邏輯：反向合成生成 (Design-First Generation) ---
+    // --- 全新核心邏輯：AI 原生生成 + 紋理轉印 + 智能質檢 ---
     const handleAutoGeneratePipeline = async () => {
-        // 【修改 1】穿戴模擬專用的額度 Key
+        const turnDirection = Math.random() > 0.5 ? "LEFT" : "RIGHT";
+        
+        // 1. 額度檢查
         const quotaKey = 'FREE_QUOTA_WEARABLE'; 
         const currentCount = parseInt(localStorage.getItem(quotaKey) || '0');
         const hasUserKey = !!localStorage.getItem('USER_GEMINI_KEY');
 
         if (!hasUserKey && currentCount >= 5) {
-            setShowApiKeyModal(true); 
-            return;
+            setShowApiKeyModal(true); return;
         }
-        
-        if (!hasUserKey) {
-            localStorage.setItem(quotaKey, currentCount + 1);
-        }
-
+        if (!hasUserKey) { localStorage.setItem(quotaKey, currentCount + 1); }
         if (!designerState || !designerState.sides) { alert("請先設計軍牌！"); return; }
         
         setIsGenerating(true);
-        // ... (後續程式碼保持不變)
-        setPipelineStatus('準備設計圖與構圖...');
+        setPipelineStatus('準備設計圖...');
 
         try {
+            // 2. 準備設計圖 (高解析度)
             const designCanvas = await renderDesignToCanvas(designerState.sides[designerState.currentSide], 2, { isMockup: true });
-            if (!designCanvas) throw new Error("設計圖渲染失敗");
             const designBase64 = designCanvas.toDataURL('image/png');
             setDesignImgUrl(designBase64); 
 
-    // 2. STAGE 1: 基底場景生成
-        const selectedOutfitConfig = OUTFITS.find(o => o.value === outfit) || OUTFITS[0];
-        const outfitPrompt = selectedOutfitConfig.prompt;
-
-        // --- 【修正】補回 shotPrompt 定義 ---
-        let shotPrompt = "Professional Medium Shot portrait of THIS PERSON (Head and Shoulders visible).";
-        if (shotType === 'full') {
-            // 強調 "Single Subject" 避免背景雜亂，並使用大腿以上構圖
-            shotPrompt = "Professional 3/4 Shot (Thigh-Up Portrait) of THIS PERSON. Camera at eye level. Single Subject.";
-        }
-        // ----------------------------------
             let baseImgForComposite = null;
-            // 【修改 3 - 修正版】完整邏輯：檢查快取 vs 重新生成
+
+            // --- 定義隨機展示動作 (Pose Strategy) ---
+            let posePrompt = "";
+            if (shotType === 'full') {
+                // 【修改 1】優化姿勢庫：移除過度誇張的特寫動作
+                const poses = [
+                    "Natural Pose: Standing relaxed, hands in pockets.",
+                    "Casual Pose: One hand adjusting jacket, chest open.",
+                    "Confident Pose: Arms crossed loosely (low), chest clear.",
+                    "Dynamic Pose: Leaning slightly forward.",
+                    "Stylish Pose: One hand touching hair or chin, elbow out."
+                ];
+                const selectedPose = poses[Math.floor(Math.random() * poses.length)];
+                
+                // 【關鍵修改】將「隨機帥氣動作」與「45度側身 + 看鏡頭」強行結合
+                posePrompt = `
+                    Action: ${selectedPose}
+                    CRITICAL BODY ANGLE: Body turned exactly 45 degrees to the ${turnDirection} (3/4 Profile View).
+                    FACE DIRECTION: Face turned to look DIRECTLY at the camera.
+                    Constraint: Tag must hang naturally on the chest. DO NOT block the tag with hands.
+                `;
+            } else {
+                // 半身照維持標準 45 度側身
+                posePrompt = `Pose: Body turned exactly 45 degrees to the ${turnDirection} (3/4 Profile View), Face looking at camera.`;
+            }
+
+            // 3. STAGE 1: 生成「戴著空白軍牌」的完美人像
             if (lockModel && baseSceneCache) {
-                // 情境 A: 有鎖定且有快取 -> 直接使用，不扣 API 額度
                 console.log("Using cached base scene");
-                setPipelineStatus('使用鎖定的模特兒場景 (Skipping Stage 1)...');
+                setPipelineStatus('使用鎖定的模特兒 (已含空白軍牌)...');
                 baseImgForComposite = baseSceneCache;
             } else {
-                // 情境 B: 沒鎖定或沒快取 -> 重新生成
+                const selectedOutfitConfig = OUTFITS.find(o => o.value === outfit) || OUTFITS[0];
+                const outfitPrompt = selectedOutfitConfig.prompt;
+                
+                // 構建 Prompt：強調「空白銀色軍牌」
+                const blankTagPrompt = `
+                    WEARING A BLANK SILVER DOG TAG NECKLACE.
+                    - The tag is a standard rectangular silver metal plate.
+                    - CRITICAL: The tag surface is CLEAN, BLANK, and SMOOTH SILVER. NO TEXT, NO DESIGN.
+                    - The tag creates a realistic V-shape suspension on the chest.
+                    - Lighting and reflection on the blank metal are physically accurate.
+                `;
+
                 if (faceImage) {
-                    setPipelineStatus('第一階段：人像轉繪 (Scene Transfer)...'); 
-                    
-                    // 這裡必須保留完整的 Prompt 定義
+                    setPipelineStatus('第一階段：人像轉繪 (生成空白軍牌)...'); 
                     const scenePrompt = `
-                        ${shotPrompt}
-                        Pose: Facing camera directly, standing 
-                        straight, CHIN TILTED SLIGHTLY UP.
+                        Professional Medium Shot (Waist-Up Landscape) of THIS PERSON.
+                        
+                        // 【修改 1】更強力的縮小與置中 (防止爆邊)
+                        Composition: EXTREME WIDE ANGLE. ZOOM OUT SIGNIFICANTLY.
+                        Subject Placement: STRICTLY CENTERED floating in the middle.
+                        SCALE CONTROL: The subject must be SMALL, occupying only 40-45% of the image height.
+                        NEGATIVE SPACE: Leave HUGE empty borders (30% width) on left/right/top.
+                        
+                        SAFETY BOUNDARIES (CRITICAL): 
+                        1. HEADROOM: Massive space above head.
+                        2. HORIZONTAL: Arms, elbows, and hands must be COMPLETELY INSIDE the frame with room to spare.
+                        3. NO CROPPING: Do not cut off any part of the upper body pose.
+                        
+                        // 【修改 2】使用結合了動作與角度的 posePrompt
+                        Pose: ${posePrompt}
+
                         Outfit: ${outfitPrompt}.
                         Background: ${location}.
-                        Lighting: ${vibe}, cinematic.
-                        
-                        CRITICAL CLOTHING RULES:
-                        1. The NECK and UPPER CHEST area MUST BE FULLY VISIBLE and bare. 
-                        2. ABSOLUTELY NO NECKLACES, NO CHAINS, NO JEWELRY on the neck. (We will add one later).
-                        3. If wearing a T-shirt, make it a LOW CUT / SCOOP NECK.
-                        4. If wearing a jacket/hoodie, the zipper MUST be fully OPEN at the top.
-                        
-                        Ensure the face resembles the input image significantly.
-                        High quality, 8k.
+                        Lighting: ${vibe}, realistic high-end photography lighting.
+                        ${blankTagPrompt}
+                        Ensure the face resembles the input image. High quality, 8k.
                     `;
-                    
-                    baseImgForComposite = await callGeminiImg2Img(scenePrompt, faceImage);
-                    if (!baseImgForComposite) throw new Error("人物情境生成失敗，請更換照片再試。");
-                    
+                    // 【修改 2】先將自拍照強制轉為 16:9 橫圖 (補黑邊)，再讓 AI 填補背景
+const landscapeFace = await convertToLandscape(faceImage);
+baseImgForComposite = await callGeminiImg2Img(scenePrompt, landscapeFace);
                 } else {
-                    setPipelineStatus('生成模特兒...');
-                    
-                    // 這裡也必須保留完整的 Prompt 定義
-                    let modelShotPrompt = "Professional Medium Shot portrait (Head and Shoulders)";
-                    if (shotType === 'full') {
-                        modelShotPrompt = "Professional Full Body Shot";
-                    }
-
+                    setPipelineStatus('生成模特兒 (生成空白軍牌)...');
                     const modelPrompt = `
-                        ${modelShotPrompt} of a ${race} ${gender} model.
-                        Pose: Facing camera, standing straight.
-                        Outfit: ${outfitPrompt}, with clear chest area. No necklace.
+                        Professional Medium Shot (Waist-Up Landscape) of a ${race} ${gender} model.
+                        
+                        // 【修改 2】更強力的縮小與置中 (防止爆邊)
+                        Composition: EXTREME WIDE ANGLE. ZOOM OUT SIGNIFICANTLY.
+                        Subject Placement: STRICTLY CENTERED.
+                        SCALE CONTROL: The subject must be SMALL, occupying only 40-45% of the image height.
+                        NEGATIVE SPACE: Leave HUGE empty borders on all sides.
+                        
+                        SAFETY BOUNDARIES (CRITICAL): 
+                        1. HEADROOM: Massive space above head.
+                        2. HORIZONTAL: Ensure arms and gestures are fully visible within the frame. DO NOT CROP ARMS.
+                        
+                        // 【修改 3】使用結合了動作與角度的 posePrompt
+                        Pose: ${posePrompt}
+                        
+                        Outfit: ${outfitPrompt}.
                         Background: ${location}.
-                        Lighting: ${vibe}.
+                        Lighting: ${vibe}, realistic photography.
+                        ${blankTagPrompt}
                     `;
-                    baseImgForComposite = await callGeminiImage(modelPrompt);
-                    if (!baseImgForComposite) throw new Error("模特兒生成失敗");
+                    // 【修改 3】傳入 "3:4" (標準人像比例) 或 "4:3" (橫向)，這裡使用 3:4 讓肩膀寬度足夠但不會太扁
+                     // 【建議】使用 16:9 寬螢幕，才有足夠的橫向空間顯示手臂兩側的背景
+                    baseImgForComposite = await callGeminiImage(modelPrompt, "16:9");
                 }
 
-                // 生成成功後，存入快取狀態
+                if (!baseImgForComposite) throw new Error("第一階段生成失敗");
                 setBaseSceneCache(baseImgForComposite);
-                
-                // UX 優化：生成成功後自動鎖定，這樣使用者接下來調整滑桿時就會很快
                 if (!lockModel) setLockModel(true);
             }
 
-            // 3. STAGE 2: 複合設計圖 (含虛擬鍊條繪製)
-            setPipelineStatus('第二階段：佩戴軍牌 (繪製鍊條)...');
-            // 傳入目前的 shotType 以便計算正確的比例
-            const compositedBase64 = await compositeImagesAuto(baseImgForComposite, designBase64, shotType);
-
-            // 4. STAGE 3: 最終融合
-            setPipelineStatus('第三階段：金屬質感光影融合...');
-
-            // 【修改】新增尺寸判斷邏輯
-            // 當軍牌很小 (全身照 或 縮放比例 < 0.9) 時，AI 容易把設計圖當成雜訊修掉。
-            // 解決方案：針對小尺寸，改用「光影整合 (Lighting Match)」策略，嚴禁「材質置換」。
+            // 4. STAGE 2: 紋理轉印 (把設計圖 "印" 到空白軍牌上)
+            setPipelineStatus('第二階段：智能紋理轉印 (Texture Transfer)...');
             
-            const isSmallTag = shotType === 'full' || autoScale < 0.9;
-            let blendPrompt = "";
+            const transferPrompt = `
+                Advanced Texture Mapping Task.
+                
+                INPUTS:
+                - Image 1: A person wearing a BLANK silver dog tag.
+                - Image 2: A specific graphic design (Text/Logo).
+                
+                MISSION:
+                - Apply the design from Image 2 onto the BLANK dog tag in Image 1.
+                - Imagine the design is LASER ENGRAVED onto the metal.
+                
+                CRITICAL GEOMETRY RULES:
+                1. DO NOT change the shape, angle, or position of the tag in Image 1.
+                2. WARP and DISTORT the design (Image 2) to match the perspective/tilt of the tag in Image 1 exactly.
+                
+                LIGHTING INTEGRATION:
+                1. Keep the original metallic reflections of Image 1. 
+                2. Multiply the design onto the metal.
+                
+                Keep the face and background of Image 1 EXACTLY UNCHANGED.
+            `;
 
-            if (isSmallTag) {
-                // --- 情境 A：小尺寸專用 Prompt (保護優先) ---
-                blendPrompt = `
-                    Photo Compositing Task.
-                    
-                    INPUT ANALYSIS: There is a small rectangular dog tag ALREADY COMPOSED on the person's chest.
-                    It might be small, but it is physically there. (Look for the shadow).
-                    
-                    CRITICAL RULES:
-                    1. LOCATE the existing tag pixels on the chest. DO NOT IGNORE THEM.
-                    2. DO NOT GENERATE A NEW TAG. USE THE ONE PROVIDED.
-                    3. DO NOT apply "metal texture" or "brushing" (it is too small).
-                    4. DO NOT turn the design black and white. PRESERVE COLORS.
-                    5. YOUR ONLY JOB is to render the shadow/lighting around it to make it look anchored.
-                    
-                    Focus on making the CHAIN look realistic and weighted (Gravity).
-                    Ensure the chain connects to the existing tag.
-                `;
-            } else {
-                // --- 情境 B：大尺寸專用 Prompt (質感優先) ---
-                blendPrompt = `
-                    Expert Photo Compositing & Retouching.
-                    
-                    OBJECTIVE: Integrate the silver dog tag necklace realistically onto the person.
-                    
-                    CRITICAL RULES FOR THE TAG (Pendant):
-                    1. DO NOT REDRAW OR CHANGE THE DESIGN/TEXT. Keep it exactly as shown.
-                    2. Apply a realistic "Brushed Silver" texture to the metal surface.
-                    3. EDGE STYLE: COMPLETELY FRAMELESS / BORDERLESS. Do not add a raised rim, bezel, or outline.
-                    4. The edge must be flat and sharp, like a laser-cut metal sheet.
-                    5. If the design has COLOR, preserve it vividly. Do not desaturate it.
-                    
-                    CRITICAL RULES FOR THE CHAIN & WEARABILITY:
-                    1. The chain MUST look continuous and loop AROUND the neck. 
-                    2. Fix the lighting on the chain to make it look 3D and metallic.
-                    3. GRAVITY: The tag must appear to HANG with weight. If it looks floating, anchor it to the chest.
-                    4. COLLAR INTERACTION: The chain must interact naturally with the ${outfit} (going under or over the collar).
-                    5. PHYSICS & LAYERING: The chain must sit ON TOP of the clothing fabric. DO NOT let it clip through the shirt.
-
-                    DO NOT CHANGE THE FACE.
-                    High quality, photorealistic.
-                `;
-            }
+            const transferredImage = await callGeminiComposite(transferPrompt, baseImgForComposite, designBase64);
             
-            const finalImageUrl = await callGeminiImg2Img(blendPrompt, compositedBase64);
+            if (!transferredImage) throw new Error("第二階段合成失敗");
+
+            // 5. STAGE 3: AI 智能質檢與修復 (Verification & Refinement)
+            // 【修改 3】新增這一步：檢查並修復瑕疵
+            setPipelineStatus('第三階段：AI 智能質檢與修復...');
+            
+            const refinementPrompt = `
+                Final Quality Check & Refinement Task.
+                The input image is a composite of a person wearing a custom dog tag.
+                
+                CHECKLIST:
+                1. FACE: Is the face distorted? If yes, FIX the eyes and mouth to look natural and beautiful.
+                2. TAG TEXT: Is the text on the tag sharp? If blurry, sharpen it while keeping the perspective.
+                3. CONNECTION: Does the chain connect perfectly to the tag? Repair any broken links.
+                
+                ACTION:
+                - Output a polished, high-fidelity version of the image.
+                - DO NOT change the design content (text/logo) on the tag.
+                - Ensure the lighting on the tag matches the environment perfectly.
+            `;
+            
+            // 將第二階段的結果再丟回給 AI 修一次
+            const finalImageUrl = await callGeminiImg2Img(refinementPrompt, transferredImage);
 
             if (finalImageUrl) {
                 setGeneratedImage(finalImageUrl);
-                // 【修改 B】將新圖片加入歷史紀錄 (最新的在最前面)
+                // 【修改 2】更新歷史紀錄
                 setHistoryImages(prev => [finalImageUrl, ...prev].slice(0, 10));
             } else {
-                alert("生成失敗，AI 拒絕了請求或發生錯誤。");
+                // 如果第三階段失敗，至少回傳第二階段的圖
+                setGeneratedImage(transferredImage);
+                setHistoryImages(prev => [transferredImage, ...prev].slice(0, 10));
             }
 
         } catch (e) {
             console.error(e);
-            alert("生成過程發生錯誤：" + e.message);
+            alert("錯誤：" + e.message);
         } finally {
             setIsGenerating(false);
             setPipelineStatus('');
@@ -1154,12 +1292,14 @@ const WearableSimulator = ({ designerState }) => {
     useEffect(() => { window.addEventListener('mouseup', handleMouseUp); return () => window.removeEventListener('mouseup', handleMouseUp); }, []);
 
     return (
-        <div className="flex flex-col md:flex-row h-full w-full bg-slate-50 rounded-xl overflow-hidden shadow-2xl relative border border-slate-200">
-            <div ref={containerRef} className="flex-1 bg-slate-200 relative flex items-center justify-center overflow-hidden" >
+      <div className="flex flex-col md:flex-row h-full w-full bg-white/40 backdrop-blur-md rounded-xl overflow-hidden shadow-2xl relative border border-white/50">
+            {/* 【修改 2】改為 bg-black (黑色背景)，視覺上擴大空間感 */}
+            <div ref={containerRef} className="flex-1 bg-black relative flex items-center justify-center overflow-hidden" >
                 {generatedImage ? (
                     // 【修改】移除 onClick 和 cursor-crosshair
                     <div className="relative w-full h-full flex items-center justify-center">
-                        <img src={generatedImage} alt="Scenario" className="w-full h-full object-contain select-none" />
+                        {/* 【修改 3】改為 object-cover，強制圖片填滿視窗，消除任何可能的黑邊 */}
+<img src={generatedImage} alt="Scenario" className="w-full h-full object-cover select-none" />
                         
                         {/* (已移除校正提示動畫) */}
                         
@@ -1208,10 +1348,11 @@ const WearableSimulator = ({ designerState }) => {
                                 
                                 <div className="flex bg-slate-100 p-1 rounded-lg">
                                     <button onClick={() => setShotType('half')} className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${shotType === 'half' ? 'bg-white shadow text-indigo-600' : 'text-slate-500'}`}>
-                                        半身照 (Half Body)
+                                        標準半身 (Standard)
                                     </button>
+                                    {/* 【修改】按鈕文字改為「造型特寫」 */}
                                     <button onClick={() => setShotType('full')} className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all ${shotType === 'full' ? 'bg-white shadow text-indigo-600' : 'text-slate-500'}`}>
-                                        全身照 (Full Body)
+                                        造型特寫 (Styled Pose)
                                     </button>
                                 </div>
                             </div>
@@ -1229,8 +1370,8 @@ const WearableSimulator = ({ designerState }) => {
                                 <input 
                                     type="range" 
                                     min="0.1" 
-                                    max="1.0" 
-                                    step="0.1" 
+                                    max="0.4" 
+                                    step="0.05" 
                                     value={autoScale} 
                                     onChange={(e) => setAutoScale(parseFloat(e.target.value))} 
                                     className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600" 
@@ -1306,7 +1447,8 @@ const WearableSimulator = ({ designerState }) => {
                             </div>
 
                     {/* 下載區域 */}
-                    {generatedImage && !designImgUrl && (
+                    {/* 【修改 2】移除 !designImgUrl 判斷，確保歷史紀錄總是能顯示 */}
+                    {generatedImage && (
                         <div className="animate-in fade-in slide-in-from-right-4">
                              <div className="bg-green-50 p-4 rounded-xl border border-green-200 mb-4">
                                 <div className="flex items-start">
@@ -1320,24 +1462,20 @@ const WearableSimulator = ({ designerState }) => {
                              <button onClick={() => { const link = document.createElement('a'); link.download = `Result_${Date.now()}.png`; link.href = generatedImage; link.click(); }} className="w-full py-3 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl font-bold transition-all flex items-center justify-center shadow-sm">
                                 <HardDrive className="w-4 h-4 mr-2" /> 下載最終成品
                              </button>
-                             
-                             <div className="mt-6 pt-6 border-t border-slate-100">
-                                <p className="text-[10px] text-slate-400 text-center mb-2">如果不滿意位置，可以手動重新載入設計圖調整</p>
-                                <button onClick={handleLoadDesign} className="w-full py-2 text-xs text-slate-500 hover:text-indigo-600 underline">切換回手動調整模式</button>
-                             </div>
 
-                             {/* 【修改 C】新增：歷史圖庫區塊 */}
+                             {/* 【修改 2】歷史圖庫區塊 (點擊可切換回上一幅) */}
                             {historyImages.length > 0 && (
                                 <div className="mt-6 pt-4 border-t border-slate-200 animate-in fade-in">
                                     <div className="flex justify-between items-center mb-2">
-                                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">生成歷史回顧</h4>
+                                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">生成歷史 ({historyImages.length})</h4>
                                         <button onClick={() => setHistoryImages([])} className="text-[10px] text-slate-400 hover:text-red-500">清除</button>
                                     </div>
                                     <div className="grid grid-cols-4 gap-2 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
                                         {historyImages.map((img, idx) => (
                                             <div 
                                                 key={idx} 
-                                                onClick={() => setGeneratedImage(img)}
+                                                onClick={() => setGeneratedImage(img)} // 點擊切換回這張圖
+                                                title="點擊恢復此版本"
                                                 className={`aspect-square rounded-lg overflow-hidden cursor-pointer border-2 transition-all hover:opacity-100 ${generatedImage === img ? 'border-indigo-500 opacity-100 ring-2 ring-indigo-200' : 'border-transparent opacity-60 hover:scale-105'}`}
                                             >
                                                 <img src={img} className="w-full h-full object-cover" alt={`History ${idx}`} />
@@ -1394,7 +1532,45 @@ const LaserSimulator = ({ designerState, updateDesignerState }) => {
             scene = new THREE.Scene(); scene.background = new THREE.Color(0x1a1b1e); scene.fog = new THREE.FogExp2(0x1a1b1e, 0.02);
             camera = new THREE.PerspectiveCamera(35, width / height, 0.1, 100); camera.position.z = 11;
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false }); 
-            renderer.setSize(width, height); renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.8; 
+            renderer.setSize(width, height); renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.8;
+             renderer.setSize(width, height); renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.8; 
+            
+            // --- 【修改】加入虛擬攝影棚環境 (讓金屬產生真實反射) ---
+            const pmremGenerator = new THREE.PMREMGenerator(renderer);
+            pmremGenerator.compileEquirectangularShader();
+            
+            // 1. 動態繪製一張「環境貼圖」(模擬攝影棚燈光)
+            const envCanvas = document.createElement('canvas');
+            envCanvas.width = 1024; envCanvas.height = 512;
+            const envCtx = envCanvas.getContext('2d');
+            
+            // 背景漸層 (模擬地平線)
+            const grd = envCtx.createLinearGradient(0, 0, 0, 512);
+            grd.addColorStop(0, '#ffffff'); // 頂部亮光
+            grd.addColorStop(0.5, '#444444'); // 中間灰
+            grd.addColorStop(1, '#111111'); // 底部深色
+            envCtx.fillStyle = grd;
+            envCtx.fillRect(0, 0, 1024, 512);
+            
+            // 加入一些「柔光箱」亮塊 (讓金屬有漂亮的反射光斑)
+            envCtx.fillStyle = '#ffffff';
+            envCtx.fillRect(100, 100, 200, 150); // 左側主光
+            envCtx.fillRect(700, 200, 100, 50);  // 右側補光
+            envCtx.fillStyle = '#ffeedd'; // 暖色光
+            envCtx.fillRect(400, 0, 300, 50);    // 頂光
+            
+            // 2. 轉換為 3D 環境貼圖
+            const envTex = new THREE.CanvasTexture(envCanvas);
+            envTex.colorSpace = THREE.SRGBColorSpace;
+            const envMap = pmremGenerator.fromEquirectangular(envTex).texture;
+            
+            // 3. 套用到場景 (這是讓金屬變真實的關鍵!)
+            scene.environment = envMap; 
+            // scene.background = envMap; // 如果想看到背景可取消註解，但通常保持黑色比較專業
+            
+            envTex.dispose();
+            pmremGenerator.dispose();
+            // ----------------------------------------------------
             while (canvasContainerRef.current.firstChild) { canvasContainerRef.current.removeChild(canvasContainerRef.current.firstChild); }
             canvasContainerRef.current.appendChild(renderer.domElement);
             const ambientLight = new THREE.AmbientLight(0xffffff, 1.2); scene.add(ambientLight);
@@ -1430,11 +1606,77 @@ const LaserSimulator = ({ designerState, updateDesignerState }) => {
     useEffect(() => { if (mountRef.current && mountRef.current.frontMat && mountRef.current.backMat && mountRef.current.sideMat) { if (generatedTextureUrl) { applyGeneratedTexture(mountRef.current.frontMat, generatedTextureUrl, simMode, depthStrength); applyGeneratedTexture(mountRef.current.backMat, generatedTextureUrl, simMode, depthStrength); updateEdgeMaterial(mountRef.current.sideMat, edgePattern); } else { updateMaterials(mountRef.current.frontMat, mountRef.current.frontTex, simMode, depthStrength); updateMaterials(mountRef.current.backMat, mountRef.current.backTex, simMode, depthStrength); updateEdgeMaterial(mountRef.current.sideMat, edgePattern); } } }, [simMode, depthStrength, generatedTextureUrl, edgePattern]);
     useEffect(() => { if (mountRef.current && mountRef.current.sideMat) { updateEdgeMaterial(mountRef.current.sideMat, edgePattern); } }, [edgePattern]);
 
-    const applyGeneratedTexture = (mat, url, mode, strength, isEdge = false) => { if (!mat || !url) return; const loader = new THREE.TextureLoader(); loader.load(url, (tex) => { tex.colorSpace = THREE.SRGBColorSpace; if (isEdge) { tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(4, 1); } mat.map = null; mat.displacementMap = null; mat.bumpMap = null; mat.needsUpdate = true; if (mode === 'color') { mat.map = tex; mat.color.setHex(0xffffff); mat.metalness = 0.2; mat.roughness = 0.5; } else if (mode === 'depth') { mat.color.setHex(0xeeeeee); mat.metalness = 0.8; mat.roughness = 0.35; mat.bumpMap = tex; mat.bumpScale = strength * 0.8; } else if (mode === 'dither') { mat.map = tex; mat.bumpMap = tex; mat.bumpScale = 0.05; mat.color.setHex(0xffffff); mat.metalness = 0.5; } mat.needsUpdate = true; }); };
+    const applyGeneratedTexture = (mat, url, mode, strength, isEdge = false) => { 
+        if (!mat || !url) return; 
+        const loader = new THREE.TextureLoader(); 
+        loader.load(url, (tex) => { 
+            tex.colorSpace = THREE.SRGBColorSpace; 
+            if (isEdge) { 
+                tex.wrapS = THREE.RepeatWrapping; 
+                tex.wrapT = THREE.RepeatWrapping; 
+                tex.repeat.set(4, 1); 
+            } 
+            mat.map = null; mat.displacementMap = null; mat.bumpMap = null; mat.needsUpdate = true; 
+            
+            if (mode === 'color') { 
+                mat.map = tex; 
+                mat.color.setHex(0xffffff); 
+                // 【修改】MOPA 雷射質感：高金屬度 + 微凹凸
+                mat.metalness = 1.0; 
+                mat.roughness = 0.35; 
+                mat.bumpMap = tex;      // 使用顏色紋理作為微凹凸
+                mat.bumpScale = 0.02;   // 極細微的蝕刻感
+            } else if (mode === 'depth') { 
+                mat.color.setHex(0xeeeeee); 
+                mat.metalness = 0.9; 
+                mat.roughness = 0.4; 
+                mat.bumpMap = tex; 
+                mat.bumpScale = strength * 0.8; 
+            } else if (mode === 'dither') { 
+                mat.map = tex; 
+                mat.bumpMap = tex; 
+                mat.bumpScale = 0.05; 
+                mat.color.setHex(0xffffff); 
+                mat.metalness = 0.7; // 網點雷射通常較霧面
+                mat.roughness = 0.6;
+            } 
+            mat.needsUpdate = true; 
+        }); 
+    };
     const handleAiTextureGeneration = async () => { if (!aiPrompt.trim()) return; setIsAiSuggesting(true); const prompt = `${aiPrompt}. High resolution, high quality texture design.`; try { const imageUrl = await callGeminiImage(prompt); if (imageUrl) { setGeneratedTextureUrl(imageUrl); setSimMode('color'); } } catch (e) { console.error("AI Texture Error", e); } finally { setIsAiSuggesting(false); } };
     const clearGeneratedTexture = () => { setGeneratedTextureUrl(null); };
     const updateEdgeMaterial = (mat, pattern) => { const canvas = generateEdgeTexture(pattern); const tex = new THREE.CanvasTexture(canvas); tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(4, 1); mat.map = tex; mat.bumpMap = tex; mat.bumpScale = 0.05; mat.roughness = 0.5; mat.color.setHex(0xcccccc); mat.needsUpdate = true; };
-    const updateMaterials = (mat, tex, mode, strength) => { if (!mat) return; mat.map = null; mat.displacementMap = null; mat.bumpMap = null; mat.needsUpdate = true; if (mode === 'color') { mat.map = tex; mat.color.setHex(0xffffff); mat.metalness = 0.3; mat.roughness = 0.4; } else if (mode === 'depth') { mat.color.setHex(0xffffff); mat.metalness = 0.85; mat.roughness = 0.35; mat.bumpMap = tex; mat.bumpScale = strength * 0.8; mat.displacementMap = null; } else if (mode === 'dither') { mat.bumpMap = tex; mat.bumpScale = 0.02; mat.map = tex; mat.color.setHex(0xffffff); mat.metalness = 0.6; } };
+    const updateMaterials = (mat, tex, mode, strength) => { 
+        if (!mat) return; 
+        mat.map = null; mat.displacementMap = null; mat.bumpMap = null; mat.needsUpdate = true; 
+        
+        if (mode === 'color') { 
+            mat.map = tex; 
+            mat.color.setHex(0xffffff); 
+            // 【修改】MOPA 氧化色模擬：讓顏色呈現金屬光澤
+            mat.metalness = 1.0; // 設為純金屬，讓環境光能反射在顏色上
+            mat.roughness = 0.3; // 光滑表面
+            
+            // 加入凹凸貼圖，讓文字邊緣有雷射燒灼的立體感
+            mat.bumpMap = tex;
+            mat.bumpScale = 0.03; 
+            
+        } else if (mode === 'depth') { 
+            mat.color.setHex(0xffffff); 
+            mat.metalness = 0.9; 
+            mat.roughness = 0.35; 
+            mat.bumpMap = tex; 
+            mat.bumpScale = strength * 0.8; 
+            mat.displacementMap = null; 
+        } else if (mode === 'dither') { 
+            mat.bumpMap = tex; 
+            mat.bumpScale = 0.03; 
+            mat.map = tex; 
+            mat.color.setHex(0xffffff); 
+            mat.metalness = 0.7; 
+            mat.roughness = 0.5;
+        } 
+    };
 
     return (
         <div className="flex flex-row h-full w-full bg-slate-900 rounded-xl overflow-hidden shadow-2xl relative border border-slate-700">
@@ -2231,7 +2473,264 @@ const [showApiKeyModal, setShowApiKeyModal] = useState(false);
         </div>
     );
 };
+// --- 新增：服務指南與 Q&A 頁面 (AI 智能客服版) ---
+const InfoPage = ({ onNavigate }) => {
+    const [openIndex, setOpenIndex] = useState(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [isTyping, setIsTyping] = useState(true);
 
+    const faqData = [
+        {
+            category: "設計流程 (Design Workflow)",
+            icon: Wrench,
+            items: [
+                { q: "1. 專屬設計 (Designer)", a: "進入「軍牌設計器」，利用左側工具列添加文字或上傳 Logo。您可以自由調整排版、字體與圖層順序。如果缺乏靈感，點擊星星圖示使用 AI 自動生成素材。" },
+                { q: "2. 3D 預覽 (Preview)", a: "切換至「3D 預覽」頁面，檢查雷射雕刻在不同光線下的凹凸質感。" },
+                { q: "3. 穿戴模擬 (Wearable)", a: "想知道戴起來帥不帥？前往「穿戴模擬」，選擇模特兒或上傳自拍，AI 會將您的設計合成到模特兒胸口，並生成電影級情境照。" },
+                { q: "4. 下載與訂購 (Order)", a: "滿意後，請在設計器下載 PNG/SVG 原始檔，傳送給我們的客服進行實體製作。" }
+            ]
+        },
+        {
+            category: "收費與材質 (Pricing & Material)",
+            icon: Zap,
+            items: [
+                { q: "軍牌的材質是什麼？", a: "我們統一採用 316L 醫療級不鏽鋼 (Surgical Stainless Steel)，具備抗過敏、不生鏽、耐腐蝕的特性。表面經過精細拉絲處理，質感極佳。" },
+                { q: "雷射雕刻會掉色嗎？", a: "不會。我們使用 MOPA 彩色雷射技術，是透過高溫改變金屬表面的氧化層結構來顯色，並非印刷顏料，因此永不褪色。" },
+                { q: "有其他的上色效果嗎？", a: "當然有。我們擁有先進的UV噴印技術，無論是平面上色還是立體彩噴都能為你帶來視覺及觸覺上的多種變化。" },
+                { q: "客製化收費標準如何？", a: "基本款（單面彩色雷雕、平面UV彩色噴印, 雷雕深度0-0.5mm）：$190 HKD\n進階款（雙面彩色雷雕、平面UV彩色噴印, 雷雕深度0-0.5mm）：$350 HKD\n任何深雕、立體彩噴(每面起計, 雷雕深度>0.5mm 及立體彩噴)：$250 HKD\n*所有價格已含 60cm 珠鍊與精美禮盒包裝" }
+            ]
+        },
+        {
+            category: "常見問題 (FAQ)",
+            icon: HelpCircle,
+            items: [
+                { q: "製作需要多少時間？", a: "確認設計圖後，製作時間約為 4-5 個工作天。物流配送約需 2-3 天。" },
+                { q: "軍牌的側面可以刻字嗎？", a: "當然可以，我們軍牌厚度約3mm可以讓你刻上簽名或其他文字。" },
+                { q: "可以上傳自己的 Logo 嗎？", a: "可以。在設計器中點擊「上傳圖片」圖示即可。建議使用去背的 PNG 檔案以獲得最佳雷雕效果。" }
+                
+            ]
+        }
+    ];
+
+    const toggle = (idx) => {
+        setOpenIndex(openIndex === idx ? null : idx);
+    };
+
+    // AI 智能過濾邏輯
+    const filteredData = faqData.map(section => ({
+        ...section,
+        items: section.items.filter(item => 
+            item.q.toLowerCase().includes(searchQuery.toLowerCase()) || 
+            item.a.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+    })).filter(section => section.items.length > 0);
+
+    return (
+        <div className="flex-1 h-full bg-transparent overflow-y-auto p-4 md:p-12 relative scroll-smooth group/page">
+            {/* 背景裝飾：動態流光 */}
+            <div className="absolute top-[-20%] right-[-10%] w-[500px] h-[500px] bg-indigo-500/20 rounded-full blur-[100px] pointer-events-none animate-pulse"></div>
+            <div className="absolute bottom-[-20%] left-[-10%] w-[400px] h-[400px] bg-purple-500/20 rounded-full blur-[80px] pointer-events-none animate-pulse" style={{animationDelay: '1s'}}></div>
+            
+            <div className="max-w-4xl mx-auto relative z-10 pb-24">
+                {/* 標題區塊 */}
+                <div className="text-center mb-12 animate-in slide-in-from-bottom-4 duration-700">
+                    <div className="inline-flex p-1 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 mb-6 shadow-lg shadow-indigo-500/30">
+                        <div className="bg-white rounded-full p-4">
+                            <Sparkles className="w-8 h-8 text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 animate-pulse" />
+                        </div>
+                    </div>
+                    <h2 className="text-5xl font-black bg-clip-text text-transparent bg-gradient-to-r from-slate-800 via-indigo-800 to-slate-800 mb-4 tracking-tight drop-shadow-sm">
+                        服務指南
+                    </h2>
+                    <div className="h-6 flex items-center justify-center">
+                        <p className="text-slate-500 text-lg font-medium font-mono flex items-center">
+                            <span className="mr-2">System:</span>
+                            <span className="typing-effect border-r-2 border-indigo-500 pr-1 animate-pulse">
+                                解答您關於設計、材質與訂購的所有疑問...
+                            </span>
+                        </p>
+                    </div>
+                </div>
+
+                {/* AI 搜尋欄 (模擬 ChatGPT 輸入框) */}
+                <div className="mb-12 sticky top-0 z-50">
+                    <div className="relative group max-w-2xl mx-auto">
+                        <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
+                        <div className="relative bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl flex items-center p-2 border border-white/50">
+                            <div className="p-3 text-indigo-500">
+                                <Sparkles className="w-5 h-5" />
+                            </div>
+                            <input 
+                                type="text" 
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="請問 AI：雷雕會掉色嗎？如何上傳 Logo？..." 
+                                className="w-full bg-transparent text-slate-700 placeholder-slate-400 text-base p-2 outline-none font-medium"
+                            />
+                            {searchQuery && (
+                                <button onClick={() => setSearchQuery('')} className="p-2 text-slate-400 hover:text-red-500 transition-colors">
+                                    <X className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* FAQ 列表 */}
+                <div className="grid grid-cols-1 gap-8">
+                    {filteredData.length > 0 ? filteredData.map((section, sIdx) => (
+                        <div key={sIdx} className="space-y-4 animate-in slide-in-from-bottom-8 duration-700" style={{animationDelay: `${sIdx * 100}ms`}}>
+                            <div className="flex items-center space-x-3 mb-2 px-2">
+                                <div className="p-2 bg-indigo-100/50 rounded-lg text-indigo-600">
+                                    <section.icon className="w-5 h-5" />
+                                </div>
+                                <h3 className="text-xl font-bold text-slate-700">{section.category}</h3>
+                            </div>
+                            
+                            <div className="grid gap-4">
+                                {section.items.map((item, iIdx) => {
+                                    const uniqueId = `${sIdx}-${iIdx}`;
+                                    const isOpen = openIndex === uniqueId;
+                                    return (
+                                        <div 
+                                            key={uniqueId} 
+                                            className={`group bg-white/60 backdrop-blur-md border border-white/60 rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-indigo-500/10 hover:-translate-y-1 ${isOpen ? 'ring-2 ring-indigo-500/20 bg-white/90 shadow-xl' : ''}`}
+                                        >
+                                            <button 
+                                                onClick={() => toggle(uniqueId)}
+                                                className="w-full text-left px-6 py-5 flex justify-between items-start gap-4"
+                                            >
+                                                <span className={`font-bold text-base transition-colors duration-300 ${isOpen ? 'text-indigo-700' : 'text-slate-700 group-hover:text-indigo-600'}`}>
+                                                    {item.q}
+                                                </span>
+                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 ${isOpen ? 'rotate-180 bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-500'}`}>
+                                                    <ChevronDown className="w-5 h-5" />
+                                                </div>
+                                            </button>
+                                            <div 
+                                                className={`transition-all duration-500 ease-in-out ${isOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}
+                                            >
+                                                <div className="px-6 pb-6 pt-0">
+                                                    <div className="p-4 bg-gradient-to-br from-slate-50 to-indigo-50/30 rounded-xl border border-indigo-100/50 text-slate-600 text-sm leading-relaxed whitespace-pre-line">
+                                                        {item.a}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )) : (
+                        <div className="text-center py-20 opacity-50">
+                            <HelpCircle className="w-16 h-16 mx-auto mb-4 text-slate-300" />
+                            <p className="text-slate-500">沒有找到與「{searchQuery}」相關的內容</p>
+                        </div>
+                    )}
+                </div>
+
+                {/* 底部行動呼籲 - 懸浮卡片 */}
+                <div className="mt-20 relative group cursor-pointer" onClick={() => onNavigate('designer')}>
+                    <div className="absolute -inset-1 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 rounded-3xl blur opacity-30 group-hover:opacity-75 transition duration-500 animate-pulse"></div>
+                    <div className="relative p-10 bg-white/90 backdrop-blur-xl border border-white/50 rounded-3xl shadow-2xl flex flex-col md:flex-row items-center justify-between gap-8 text-center md:text-left hover:bg-white transition-colors">
+                        <div>
+                            <h3 className="text-3xl font-black text-slate-800 mb-2">準備好展現個性了嗎？</h3>
+                            <p className="text-slate-500 text-lg">啟動設計器，完成您完成獨一無二的軍牌。</p>
+                        </div>
+                        <button className="bg-slate-900 text-white px-8 py-4 rounded-xl font-bold hover:bg-indigo-600 hover:scale-105 transition-all shadow-xl flex items-center shrink-0">
+                            <Wrench className="w-5 h-5 mr-2" />
+                            立即開始設計
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+// --- 新增：首頁 (品牌形象影片 + 社群連結) ---
+const HomePage = ({ onNavigate }) => {
+    // 【修改】固定影片網址 (請將此處替換為您的宣傳影片連結，例如 .mp4 檔案網址)
+    // 【修改】將結尾的 dl=0 改為 dl=1，這是 Dropbox 的直連參數
+    const videoSrc = "https://www.dropbox.com/scl/fi/m1ch33e08cttntoojebln/fa5bfa05-086f-4d07-a64c-1b28c5caf2f4.mp4?rlkey=gmstsny48t5h9snbio5eaoqgx&st=doibkfdv&dl=1";
+    return (
+        <div className="flex-1 h-full relative overflow-hidden flex flex-col items-center justify-center bg-black text-white group/home">
+            {/* 1. 背景影片層 */}
+            <div className="absolute inset-0 z-0">
+                <video 
+                    autoPlay 
+                    loop 
+                    muted 
+                    playsInline 
+                    // 【修改 1】將 opacity-50 改為 opacity-80 (讓影片更亮、更清楚)
+                    className="w-full h-full object-cover opacity-50"
+                >
+                    <source src={videoSrc} type="video/mp4" />
+                </video>
+                
+                {/* 漸層遮罩，讓文字更清晰 */}
+                {/* 【修改 2】大幅降低黑色濃度：
+                    from-black/80 -> from-black/40 (頂部變淺)
+                    via-black/20 -> via-black/0 (中間全透明)
+                    to-black/90 -> to-black/60 (底部變淺) 
+                */}
+                <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/0 to-black/60"></div>
+                
+                {/* 網點紋理 (增加戰術感) */}
+                {/* 【修改 3】將 opacity-20 改為 opacity-10 (讓網點更隱約，不擋視線) */}
+                <div className="absolute inset-0 opacity-10 pointer-events-none" style={{backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', backgroundSize: '30px 30px'}}></div>
+            </div>
+
+            {/* 2. 主要內容層 */}
+            <div className="relative z-10 flex flex-col items-center justify-between h-full w-full max-w-6xl py-12 px-6">
+                
+                {/* 頂部文字區 (取代原本的 DTR Logo) */}
+                <div className="mt-16 text-center animate-in slide-in-from-top-10 duration-1000 flex flex-col items-center">
+                    {/* 【修改】將標語移至最上方，並放大作為主視覺 */}
+                    <h1 className="text-4xl md:text-6xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white to-slate-400 drop-shadow-2xl mb-4 leading-tight">
+                        個人化設計 X MOPA 彩色雷雕
+                    </h1>
+                    <p className="text-lg md:text-2xl text-slate-300 font-light tracking-wide">
+                        打造獨一無二的專屬識別，重新定義軍牌工藝。
+                    </p>
+                </div>
+
+                {/* 中間行動呼籲區 (只保留按鈕) */}
+                <div className="flex flex-col items-center gap-8 animate-in zoom-in-95 duration-1000 delay-200">
+                    <button 
+                        onClick={() => onNavigate('designer')}
+                        className="group relative px-10 py-5 bg-white text-black rounded-full overflow-hidden transition-all hover:scale-105 shadow-[0_0_50px_rgba(255,255,255,0.3)]"
+                    >
+                        <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-0 group-hover:opacity-10 transition-opacity duration-300"></div>
+                        <span className="relative z-10 flex items-center font-black text-lg tracking-wider">
+                            立即開始設計 <ChevronRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform"/>
+                        </span>
+                    </button>
+                </div>
+
+                {/* 底部社群連結區 (保持不變) */}
+                <div className="w-full flex flex-col items-center gap-4 animate-in slide-in-from-bottom-10 duration-1000 delay-500">
+                    <div className="flex items-center gap-6">
+                        {/* Instagram Link */}
+                        <a href="https://www.instagram.com/dogtag_rebels/" target="_blank" rel="noreferrer" className="group flex flex-col items-center gap-2 text-slate-400 hover:text-pink-500 transition-colors">
+                            <div className="p-3 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl group-hover:border-pink-500/50 group-hover:bg-pink-500/10 transition-all">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></svg>
+                            </div>
+                            <span className="text-[10px] tracking-widest font-bold opacity-0 group-hover:opacity-100 transition-opacity transform -translate-y-2 group-hover:translate-y-0">INSTAGRAM</span>
+                        </a>
+
+                        {/* Threads Link */}
+                        <a href="https://www.threads.com/@dogtag_rebels?xmt=AQF0Wg8rcGD4si5b_3mouJTS0FqPDbVVtUHidGRD8aF8SqU" target="_blank" rel="noreferrer" className="group flex flex-col items-center gap-2 text-slate-400 hover:text-white transition-colors">
+                            <div className="p-3 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl group-hover:border-white/50 group-hover:bg-white/10 transition-all">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12a7 7 0 1 1-7-7c1.57 0 3 .5 4.09 1.36 1.1.86 1.91 2.14 1.91 3.64 0 1.29-.68 2.5-2 2.5s-2-1.21-2-2.5c0-2.38 2.55-3.5 5.5-3.5 2.5 0 3.5 1.5 3.5 3.5a9 9 0 0 1-9 9 9 9 0 1 1 9-9"/></svg>
+                            </div>
+                            <span className="text-[10px] tracking-widest font-bold opacity-0 group-hover:opacity-100 transition-opacity transform -translate-y-2 group-hover:translate-y-0">THREADS</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
 export default function App() {
   const [activeTool, setActiveTool] = useState('designer');
   const [showNavMenu, setShowNavMenu] = useState(false);
@@ -2252,6 +2751,8 @@ export default function App() {
       { id: 'designer', name: '軍牌設計器', icon: Award, description: '全功能線上客製化設計' }, 
       { id: 'laser', name: '3D預覽', icon: Zap, description: '模擬不同材質的雷射雕刻效果與參數建議' }, 
       { id: 'wearable', name: '穿戴模擬', icon: User, description: 'AI 生成模特兒佩戴情境，預覽穿搭效果' },
+      // 【新增】Q&A 頁面選單
+      { id: 'info', name: '服務指南 Q&A', icon: HelpCircle, description: '設計流程、收費標準與常見問題' },
       // 新增選單項目
       { id: 'product_preview', name: '商品預覽', icon: Camera, description: '生成高品質商品情境照' } 
   ];
@@ -2300,9 +2801,10 @@ export default function App() {
       case 'designer': return (<ArmyTagDesigner user={user} isLoggedIn={isLoggedIn} handleLogin={handleLogin} isGapiLoaded={isGapiLoaded} persistentState={designerState} updatePersistentState={updateDesignerState} />);
       case 'laser': return <LaserSimulator designerState={designerState} updateDesignerState={updateDesignerState} />;
       case 'wearable': return <WearableSimulator designerState={designerState} />;
-      // 新增頁面渲染
+      case 'info': return <InfoPage onNavigate={setActiveTool} />;
       case 'product_preview': return <ProductPreview designerState={designerState} />;
-      case 'home': return <ToolPlaceholder title="系統首頁" icon={Home} description="歡迎回來！請從選單選擇您需要的工具。" />;
+      // 【修改】渲染全新的 HomePage，並傳入導航函式以便按鈕運作
+      case 'home': return <HomePage onNavigate={setActiveTool} />;
       default: return <ToolPlaceholder title="未知頁面" icon={Wrench} description="找不到此工具。" />;
     }
   };
@@ -2435,10 +2937,13 @@ export default function App() {
          </aside>
 
          {/* 內容區域 */}
-         <main className="flex-1 overflow-hidden relative p-4 h-full">
+         {/* 【修改 1】改為 p-0 (無邊框)，讓內容可以貼齊視窗邊緣 */}
+         <main className="flex-1 overflow-hidden relative p-0 h-full">
              {renderContent()}
          </main>
       </div>
     </div>
+  );
+}
   );
 }
