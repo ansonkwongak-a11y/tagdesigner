@@ -1595,10 +1595,54 @@ const LaserSimulator = ({ isMobileMode, designerState, updateDesignerState }) =>
             const backMesh = new THREE.Mesh(geo, [backMat, sideMat]); backMesh.rotation.y = Math.PI; backMesh.position.z = 0; backMesh.castShadow = true; backMesh.receiveShadow = true; group.add(backMesh);
             if (mountRef.current) { mountRef.current.frontMat = frontMat; mountRef.current.backMat = backMat; mountRef.current.sideMat = sideMat; }
             scene.add(group);
-            let isDragging = false; let previousMousePosition = { x: 0, y: 0 }; const domEl = renderer.domElement;
-            const onMouseDown = (e) => { isDragging = true; }; const onMouseUp = (e) => { isDragging = false; };
-            const onMouseMove = (e) => { if (isDragging) { const deltaMove = { x: e.offsetX - previousMousePosition.x, y: e.offsetY - previousMousePosition.y }; group.rotation.y += deltaMove.x * 0.01; group.rotation.x += deltaMove.y * 0.01; } previousMousePosition = { x: e.offsetX, y: e.offsetY }; };
-            domEl.addEventListener('mousedown', onMouseDown); window.addEventListener('mouseup', onMouseUp); domEl.addEventListener('mousemove', onMouseMove);
+            // --- 【修改】加入觸控支援 (Touch Support) ---
+            let isDragging = false; 
+            let previousMousePosition = { x: 0, y: 0 }; 
+            const domEl = renderer.domElement;
+
+            // 1. 滑鼠事件 (電腦版)
+            const onMouseDown = (e) => { isDragging = true; previousMousePosition = { x: e.offsetX, y: e.offsetY }; }; 
+            const onMouseUp = (e) => { isDragging = false; };
+            const onMouseMove = (e) => { 
+                if (isDragging) { 
+                    const deltaMove = { x: e.offsetX - previousMousePosition.x, y: e.offsetY - previousMousePosition.y }; 
+                    group.rotation.y += deltaMove.x * 0.01; 
+                    group.rotation.x += deltaMove.y * 0.01; 
+                    previousMousePosition = { x: e.offsetX, y: e.offsetY }; 
+                } 
+            };
+
+            // 2. 觸控事件 (手機版關鍵修正)
+            const onTouchStart = (e) => { 
+                isDragging = true; 
+                // 記錄初始觸控點
+                previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY }; 
+            };
+            const onTouchEnd = (e) => { isDragging = false; };
+            const onTouchMove = (e) => { 
+                if (isDragging) { 
+                    const deltaMove = { 
+                        x: e.touches[0].clientX - previousMousePosition.x, 
+                        y: e.touches[0].clientY - previousMousePosition.y 
+                    }; 
+                    group.rotation.y += deltaMove.x * 0.01; 
+                    group.rotation.x += deltaMove.y * 0.01; 
+                    previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY }; 
+                }
+                // 關鍵：防止拖曳 3D 模型時觸發頁面捲動
+                if(e.cancelable) e.preventDefault(); 
+            };
+
+            // 3. 綁定事件
+            domEl.addEventListener('mousedown', onMouseDown); 
+            window.addEventListener('mouseup', onMouseUp); 
+            domEl.addEventListener('mousemove', onMouseMove);
+            
+            // 綁定觸控 (passive: false 允許我們使用 preventDefault 禁止捲動)
+            domEl.addEventListener('touchstart', onTouchStart, { passive: false });
+            domEl.addEventListener('touchend', onTouchEnd);
+            domEl.addEventListener('touchmove', onTouchMove, { passive: false });
+            // ----------------------------------------------------
             if (generatedTextureUrl) { applyGeneratedTexture(frontMat, generatedTextureUrl, simMode, depthStrength); if (mountRef.current.backMat) applyGeneratedTexture(mountRef.current.backMat, generatedTextureUrl, simMode, depthStrength); updateEdgeMaterial(mountRef.current.sideMat, edgePattern); } else { updateMaterials(frontMat, frontTex, simMode, depthStrength); if (mountRef.current.backMat) updateMaterials(mountRef.current.backMat, backTex, simMode, depthStrength); if (mountRef.current.sideMat) updateEdgeMaterial(mountRef.current.sideMat, edgePattern); }
             const animate = () => { animationId = requestAnimationFrame(animate); if (!isDragging) group.rotation.y += 0.005; renderer.render(scene, camera); };
             animate(); setIsGenerating(false);
