@@ -2038,7 +2038,31 @@ const ArmyTagDesigner = ({isMobileMode, user, isLoggedIn, handleLogin, isGapiLoa
   const handleLayerMouseDown = (e, id, mode) => { e.stopPropagation(); if (isCropMode && id !== selectedId) return; setSelectedId(id); if (isCropMode && id === selectedId) { setInteractionMode('panImage'); } else { setInteractionMode(mode); } setDragStart({ x: e.clientX, y: e.clientY }); const layer = layers.find(l => l.id === id); if (layer) { if (mode === 'resizeLayer') { const layerEl = document.getElementById(`layer-${id}`); if (layerEl) { const rect = layerEl.getBoundingClientRect(); const centerX = rect.left + rect.width / 2; const centerY = rect.top + rect.height / 2; const dist = Math.hypot(e.clientX - centerX, e.clientY - centerY); setInitialState({ layer: { ...layer }, startDist: dist }); } } else { setInitialState({ layer: { ...layer } }); } } };
   const handleGlobalMouseMove = (e) => { if (!interactionMode) return; if (interactionMode === 'panCanvas' && initialState.pan) { const deltaX = e.clientX - dragStart.x; const deltaY = e.clientY - dragStart.y; setPan({ x: initialState.pan.x + deltaX, y: initialState.pan.y + deltaY }); } else if (interactionMode === 'panImage' && selectedId && isCropMode) { const scaleFactor = zoomLevel / 100; const deltaX = (e.clientX - dragStart.x) / scaleFactor; const deltaY = (e.clientY - dragStart.y) / scaleFactor; const layer = layers.find(l => l.id === selectedId); if (layer && initialState.layer) { updateLayer(selectedId, { cropX: (initialState.layer.cropX || 0) + deltaX / (layer.scale || 1), cropY: (initialState.layer.cropY || 0) + deltaY / (layer.scale || 1) }); } } else if (selectedId && initialState.layer && !isCropMode) { const layerElement = document.getElementById(`layer-${selectedId}`); if (!layerElement) return; if (interactionMode === 'moveLayer') { const scaleFactor = zoomLevel / 100; const deltaX = (e.clientX - dragStart.x) / scaleFactor; const deltaY = (e.clientY - dragStart.y) / scaleFactor; let newX = initialState.layer.x + deltaX; let newY = initialState.layer.y + deltaY; if (Math.abs(newX) < 5) { newX = 0; setShowGuides(p => ({...p, x: true})); } else setShowGuides(p => ({...p, x: false})); if (Math.abs(newY) < 5) { newY = 0; setShowGuides(p => ({...p, y: true})); } else setShowGuides(p => ({...p, y: false})); updateLayer(selectedId, { x: newX, y: newY }); } else if (interactionMode === 'rotateLayer') { const rect = layerElement.getBoundingClientRect(); const centerX = rect.left + rect.width / 2; const centerY = rect.top + rect.height / 2; const angleRad = Math.atan2(e.clientY - centerY, e.clientX - centerX); let angleDeg = angleRad * (180 / Math.PI); angleDeg += 90; updateLayer(selectedId, { rotation: angleDeg }); } else if (interactionMode === 'resizeLayer' && initialState.startDist) { const rect = layerElement.getBoundingClientRect(); const centerX = rect.left + rect.width / 2; const centerY = rect.top + rect.height / 2; const currentDist = Math.hypot(e.clientX - centerX, e.clientY - centerY); const scaleRatio = currentDist / initialState.startDist; let newScale = initialState.layer.scale * scaleRatio; newScale = Math.max(0.1, Math.min(newScale, 10)); updateLayer(selectedId, { scale: newScale }); } } };
   const handleGlobalMouseUp = () => { setInteractionMode(null); setInitialState({}); setShowGuides({ x: false, y: false }); };
-  
+  // --- 【修改 1】新增：手機觸控事件轉發 (Touch Support) ---
+  // 將手機的 touch 事件轉換為程式原本理解的 mouse 事件
+  const handleTouchStart = (e, id = null, mode = null) => {
+      const touch = e.touches[0];
+      const mockEvent = {
+          stopPropagation: () => e.stopPropagation(),
+          preventDefault: () => { if(e.cancelable) e.preventDefault(); },
+          clientX: touch.clientX,
+          clientY: touch.clientY
+      };
+      if (id) {
+          handleLayerMouseDown(mockEvent, id, mode);
+      } else {
+          handleCanvasMouseDown(mockEvent);
+      }
+  };
+
+  const handleTouchMove = (e) => {
+      if (!interactionMode) return;
+      // 關鍵：拖曳時防止手機畫面捲動，讓使用者能順暢移動物件
+      if (e.cancelable) e.preventDefault(); 
+      const touch = e.touches[0];
+      const mockEvent = { clientX: touch.clientX, clientY: touch.clientY };
+      handleGlobalMouseMove(mockEvent);
+  };
   const Rulers = ({ zoomLevel, pan, viewportRef }) => {
     if (!viewportRef.current) return null;
     const viewportRect = viewportRef.current.getBoundingClientRect(); const centerX = viewportRect.width / 2; const centerY = viewportRect.height / 2; const scale = zoomLevel / 100; const originX = centerX + pan.x - (TAG_WIDTH_PX * scale) / 2; const originY = centerY + pan.y - (TAG_HEIGHT_PX * scale) / 2;
@@ -2052,7 +2076,11 @@ const ArmyTagDesigner = ({isMobileMode, user, isLoggedIn, handleLogin, isGapiLoa
   const alignLayer = (id, type) => { updateLayer(id, { x: type === 'horizontal' ? 0 : (selectedLayer?.x || 0), y: type === 'vertical' ? 0 : (selectedLayer?.y || 0) }); };
 
   return (
-    <div className={`flex-1 flex ${isMobileMode ? 'flex-col overflow-y-auto' : 'flex-col md:flex-row overflow-hidden'} gap-6 relative z-10 w-full h-full`} onMouseMove={handleGlobalMouseMove} onMouseUp={handleGlobalMouseUp} onMouseLeave={handleGlobalMouseUp}>
+    // 【修改 2-A】外層容器：加入 onTouchMove 和 onTouchEnd 監聽
+    <div className={`flex-1 flex ${isMobileMode ? 'flex-col overflow-y-auto' : 'flex-col md:flex-row overflow-hidden'} gap-6 relative z-10 w-full h-full`} 
+         onMouseMove={handleGlobalMouseMove} onMouseUp={handleGlobalMouseUp} onMouseLeave={handleGlobalMouseUp}
+         onTouchMove={handleTouchMove} onTouchEnd={handleGlobalMouseUp}>
+      
       {showShareModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
@@ -2066,9 +2094,15 @@ const ArmyTagDesigner = ({isMobileMode, user, isLoggedIn, handleLogin, isGapiLoa
             </div>
         </div>
       )}
+
       <div className={`flex flex-col min-w-0 ${isMobileMode ? 'h-[500px] shrink-0' : 'flex-1 h-full'}`}>
         <div className="bg-white/80 backdrop-blur-md rounded-2xl p-1 border border-white/50 shadow-xl relative overflow-hidden flex-grow flex flex-col select-none h-full">
-          <div ref={viewportRef} className={`relative flex-1 overflow-hidden cursor-${effectiveHandMode ? 'grab' : 'default'} bg-[#e5e7eb]`} onMouseDown={handleCanvasMouseDown} style={{ touchAction: 'none' }}>
+          {/* 【修改 2-B】畫布區域：加入 onTouchStart */}
+          <div ref={viewportRef} className={`relative flex-1 overflow-hidden cursor-${effectiveHandMode ? 'grab' : 'default'} bg-[#e5e7eb]`} 
+               onMouseDown={handleCanvasMouseDown} 
+               onTouchStart={(e) => handleTouchStart(e)}
+               style={{ touchAction: 'none' }}>
+            
             <div className="absolute inset-0 opacity-20 pointer-events-none" style={{backgroundImage: 'linear-gradient(#9ca3af 1px, transparent 1px), linear-gradient(90deg, #9ca3af 1px, transparent 1px)', backgroundSize: '20px 20px', backgroundPosition: `${pan.x}px ${pan.y}px`}}></div>
             <Rulers zoomLevel={zoomLevel} pan={pan} viewportRef={viewportRef} />
             <div className="absolute top-4 right-4 z-50 flex flex-col space-y-2">
@@ -2084,26 +2118,44 @@ const ArmyTagDesigner = ({isMobileMode, user, isLoggedIn, handleLogin, isGapiLoa
             </div>
             <div className="absolute top-4 left-10 text-xs font-mono z-10 bg-white/90 text-slate-700 px-3 py-1 rounded-full border border-slate-200 backdrop-blur-sm pointer-events-none shadow-sm">VIEW: {currentSide === 'front' ? 'FRONT SIDE' : 'BACK SIDE'} • {zoomLevel}%</div>
             {isCropMode && <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 bg-indigo-600 text-white px-4 py-2 rounded-full shadow-lg flex items-center space-x-2 animate-bounce"><Scan className="w-4 h-4" /><span className="text-xs font-bold">裁切編輯模式：拖曳圖片調整位置</span></div>}
+            
             <div className="absolute top-1/2 left-1/2 flex items-center justify-center will-change-transform" style={{ transform: `translate3d(calc(-50% + ${pan.x}px), calc(-50% + ${pan.y}px), 0) scale(${zoomLevel / 100})`, width: TAG_WIDTH_PX, height: TAG_HEIGHT_PX }}>
               <div className={`w-full h-full rounded-[48px] ${MATERIAL_316.css} relative overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.3)]`}>
                 <div className="absolute top-[30px] left-1/2 transform -translate-x-1/2 w-4 h-4 rounded-full bg-slate-800 shadow-[inset_0_1px_2px_rgba(255,255,255,0.3),inset_0_-1px_2px_rgba(0,0,0,0.8)] z-40 border border-gray-600"></div>
                 {showGuides.y && <div className="absolute top-1/2 left-0 right-0 h-[1px] bg-yellow-400 z-50 shadow-[0_0_4px_rgba(250,204,21,1)]"></div>}
                 {showGuides.x && <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-yellow-400 z-50 shadow-[0_0_4px_rgba(250,204,21,1)]"></div>}
                 {(isGeneratingUV || isEnhancingPrompt || isProcessingBg) && <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-50 flex flex-col items-center justify-center text-indigo-900"><RotateCcw className="w-8 h-8 animate-spin mb-2 text-indigo-600" /><span className="text-xs font-mono font-bold">{isProcessingBg ? 'PROCESSING...' : 'GENERATING...'}</span></div>}
+                
                 {layers.map((layer, index) => (
                   <div key={layer.id} id={`layer-${layer.id}`} className={`absolute cursor-move group select-none`}
                     style={{ left: '50%', top: '50%', transform: `translate(-50%, -50%) translate(${layer.x}px, ${layer.y}px) rotate(${layer.rotation}deg) scale(${layer.scale})`, zIndex: index + 10, transformOrigin: 'center center', opacity: (isCropMode && selectedId !== layer.id) ? 0.3 : (layer.opacity ?? 1) }}
                     onMouseDown={(e) => handleLayerMouseDown(e, layer.id, 'moveLayer')}
+                    // 【修改 2-C】圖層本體：加入 onTouchStart
+                    onTouchStart={(e) => handleTouchStart(e, layer.id, 'moveLayer')}
                   >
                     {selectedId === layer.id && !isCropMode && (
                       <>
                         <div className="absolute -inset-3 border-2 border-indigo-500 rounded-lg pointer-events-none z-50 opacity-70 border-dashed"></div>
                         {interactionMode === 'rotateLayer' && (<div className="absolute -top-20 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs font-bold px-2 py-1 rounded-lg shadow-xl z-[100] pointer-events-none font-mono tracking-wider animate-in fade-in zoom-in-95 duration-150">{Math.round(((layer.rotation % 360) + 360) % 360)}°</div>)}
-                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 w-6 h-6 bg-indigo-500 rounded-full shadow-lg cursor-grab active:cursor-grabbing flex items-center justify-center z-50 hover:scale-110 transition-transform" onMouseDown={(e) => handleLayerMouseDown(e, layer.id, 'rotateLayer')}><RotateCw className="w-3 h-3 text-white" /></div>
-                        <div className="absolute -top-2 -left-2 w-4 h-4 bg-white border-2 border-indigo-500 rounded-full cursor-nwse-resize z-50 hover:scale-125 transition-transform shadow-sm" onMouseDown={(e) => handleLayerMouseDown(e, layer.id, 'resizeLayer')}></div>
-                        <div className="absolute -top-2 -right-2 w-4 h-4 bg-white border-2 border-indigo-500 rounded-full cursor-nesw-resize z-50 hover:scale-125 transition-transform shadow-sm" onMouseDown={(e) => handleLayerMouseDown(e, layer.id, 'resizeLayer')}></div>
-                        <div className="absolute -bottom-2 -left-2 w-4 h-4 bg-white border-2 border-indigo-500 rounded-full cursor-nesw-resize z-50 hover:scale-125 transition-transform shadow-sm" onMouseDown={(e) => handleLayerMouseDown(e, layer.id, 'resizeLayer')}></div>
-                        <div className="absolute -bottom-2 -right-2 w-4 h-4 bg-white border-2 border-indigo-500 rounded-full cursor-nwse-resize z-50 hover:scale-125 transition-transform shadow-sm" onMouseDown={(e) => handleLayerMouseDown(e, layer.id, 'resizeLayer')}></div>
+                        {/* 【修改 2-D】旋轉控制點：加入 onTouchStart */}
+                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 w-6 h-6 bg-indigo-500 rounded-full shadow-lg cursor-grab active:cursor-grabbing flex items-center justify-center z-50 hover:scale-110 transition-transform" 
+                             onMouseDown={(e) => handleLayerMouseDown(e, layer.id, 'rotateLayer')}
+                             onTouchStart={(e) => handleTouchStart(e, layer.id, 'rotateLayer')}
+                        ><RotateCw className="w-3 h-3 text-white" /></div>
+                        
+                        {/* 【修改 2-E】縮放控制點 (四個角)：全部加入 onTouchStart */}
+                        <div className="absolute -top-2 -left-2 w-4 h-4 bg-white border-2 border-indigo-500 rounded-full cursor-nwse-resize z-50 hover:scale-125 transition-transform shadow-sm" 
+                             onMouseDown={(e) => handleLayerMouseDown(e, layer.id, 'resizeLayer')}
+                             onTouchStart={(e) => handleTouchStart(e, layer.id, 'resizeLayer')}></div>
+                        <div className="absolute -top-2 -right-2 w-4 h-4 bg-white border-2 border-indigo-500 rounded-full cursor-nesw-resize z-50 hover:scale-125 transition-transform shadow-sm" 
+                             onMouseDown={(e) => handleLayerMouseDown(e, layer.id, 'resizeLayer')}
+                             onTouchStart={(e) => handleTouchStart(e, layer.id, 'resizeLayer')}></div>
+                        <div className="absolute -bottom-2 -left-2 w-4 h-4 bg-white border-2 border-indigo-500 rounded-full cursor-nesw-resize z-50 hover:scale-125 transition-transform shadow-sm" 
+                             onMouseDown={(e) => handleLayerMouseDown(e, layer.id, 'resizeLayer')}
+                             onTouchStart={(e) => handleTouchStart(e, layer.id, 'resizeLayer')}></div>
+                        <div className="absolute -bottom-2 -right-2 w-4 h-4 bg-white border-2 border-indigo-500 rounded-full cursor-nwse-resize z-50 hover:scale-125 transition-transform shadow-sm" 
+                             onMouseDown={(e) => handleLayerMouseDown(e, layer.id, 'resizeLayer')}
+                             onTouchStart={(e) => handleTouchStart(e, layer.id, 'resizeLayer')}></div>
                       </>
                     )}
                     {selectedId === layer.id && isCropMode && <div className="absolute -inset-1 border-2 border-green-500 z-50 pointer-events-none shadow-[0_0_15px_rgba(34,197,94,0.5)]"><div className="absolute top-0 left-0 bg-green-500 text-white text-[9px] px-1">CROP AREA</div></div>}
@@ -2112,7 +2164,7 @@ const ArmyTagDesigner = ({isMobileMode, user, isLoggedIn, handleLogin, isGapiLoa
                         <div style={{ fontFamily: layer.fontFamily || 'Inter, sans-serif', fontSize: '40px', fontWeight: 'bold', lineHeight: 1.2, textShadow: 'none', whiteSpace: 'pre-wrap', wordBreak: 'break-word', textAlign: 'center', backgroundImage: layer.colorMode === 'gradient' ? `linear-gradient(${layer.gradientAngle}deg, ${layer.gradientStart}, ${layer.gradientEnd})` : 'none', WebkitBackgroundClip: layer.colorMode === 'gradient' ? 'text' : 'initial', WebkitTextFillColor: layer.colorMode === 'gradient' ? 'transparent' : 'initial', color: layer.colorMode === 'gradient' ? 'transparent' : (layer.color || '#000'), filter: layer.filter || 'none', width: '100%' }}>{layer.content}</div>
                       ) : (
                         <div style={{ width: '100%', height: '100%', position: 'relative', borderRadius: layer.mask === 'circle' ? '50%' : '0%', filter: layer.filter && layer.filter !== 'none' ? layer.filter : (layer.isCMYK ? 'grayscale(0.1) contrast(0.9) brightness(0.9) sepia(0.1) saturate(0.8)' : 'none') }}>
-                            <img src={layer.content} alt="layer" className="max-w-none pointer-events-none opacity-100 shadow-sm block" style={{ position: 'absolute', left: '50%', top: '50%', transform: `translate(-50%, -50%) translate(${layer.cropX || 0}px, ${layer.cropY || 0}px) scale(${layer.cropScale || 1})`, width: '100%', height: '100%', objectFit: 'cover' }} />
+                            <img src={layer.content} alt="Layer Preview" className="max-w-none pointer-events-none opacity-100 shadow-sm block" style={{ position: 'absolute', left: '50%', top: '50%', transform: `translate(-50%, -50%) translate(${layer.cropX || 0}px, ${layer.cropY || 0}px) scale(${layer.cropScale || 1})`, width: '100%', height: '100%', objectFit: 'cover' }} />
                         </div>
                       )}
                     </div>
@@ -2120,6 +2172,7 @@ const ArmyTagDesigner = ({isMobileMode, user, isLoggedIn, handleLogin, isGapiLoa
                 ))}
               </div>
             </div>
+            
             <div className="absolute bottom-10 right-6 flex flex-col bg-white/90 backdrop-blur rounded-xl border border-slate-200 shadow-xl overflow-hidden z-50">
               <button onClick={() => setIsHandMode(!isHandMode)} className={`p-3 border-b border-slate-200 transition-colors ${effectiveHandMode ? 'bg-indigo-100 text-indigo-600' : 'hover:bg-slate-100 text-slate-600'}`} title="手型工具 (按住空白鍵)"><HandIcon className="w-5 h-5"/></button>
               <button onClick={() => setZoomLevel(z => Math.min(z + 10, 200))} className="p-3 hover:bg-slate-100 text-slate-600 border-b border-slate-200"><ZoomIn className="w-5 h-5"/></button>
