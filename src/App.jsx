@@ -41,6 +41,10 @@ const ArrowDown = (p) => <IconBase {...p}><line x1="12" y1="5" x2="12" y2="19"/>
 const ChevronDown = (p) => <IconBase {...p}><polyline points="6 9 12 15 18 9"/></IconBase>;
 const MessageSquare = (p) => <IconBase {...p}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></IconBase>;
 // --- 👆👆👆 補上這行 👆👆👆 ---
+// --- 👇👇👇 請加入這兩行 👇👇👇 ---
+const Smartphone = (p) => <IconBase {...p}><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></IconBase>;
+const Monitor = (p) => <IconBase {...p}><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></IconBase>;
+// --- 👆👆👆 加入這兩行 👆👆👆 ---
 const Type = (p) => <IconBase {...p}><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></IconBase>;
 const HandIcon = (p) => <IconBase {...p}><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></IconBase>;
 const Save = (p) => <IconBase {...p}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></IconBase>;
@@ -808,7 +812,7 @@ const LOCATIONS = [
     { value: "studio plain background", label: "攝影棚純色 (Studio)" }
 ];
 
-const WearableSimulator = ({ designerState }) => {
+const WearableSimulator = ({ isMobileMode, designerState }) => {
     const [generatedImage, setGeneratedImage] = useState(null);
     const [isGenerating, setIsGenerating] = useState(false);
     // 新增狀態：處理融合中
@@ -1293,9 +1297,9 @@ baseImgForComposite = await callGeminiImg2Img(scenePrompt, landscapeFace);
     useEffect(() => { window.addEventListener('mouseup', handleMouseUp); return () => window.removeEventListener('mouseup', handleMouseUp); }, []);
 
     return (
-      <div className="flex flex-col md:flex-row h-full w-full bg-white/40 backdrop-blur-md rounded-xl overflow-hidden shadow-2xl relative border border-white/50">
+      <div className={`flex ${isMobileMode ? 'flex-col overflow-y-auto' : 'flex-col md:flex-row overflow-hidden'} h-full w-full bg-white/40 backdrop-blur-md rounded-xl shadow-2xl relative border border-white/50`}>
             {/* 【修改 2】改為 bg-black (黑色背景)，視覺上擴大空間感 */}
-            <div ref={containerRef} className="flex-1 bg-black relative flex items-center justify-center overflow-hidden" >
+            <div ref={containerRef} className={`bg-black relative flex items-center justify-center overflow-hidden ${isMobileMode ? 'h-[400px] shrink-0' : 'flex-1'}`} >
                 {generatedImage ? (
                     // 【修改】移除 onClick 和 cursor-crosshair
                     <div className="relative w-full h-full flex items-center justify-center">
@@ -1314,7 +1318,7 @@ baseImgForComposite = await callGeminiImg2Img(scenePrompt, landscapeFace);
                 )}
                 {(isGenerating || isBlending) && (<div className="absolute inset-0 bg-white/90 backdrop-blur-md z-50 flex flex-col items-center justify-center text-indigo-600"><Loader2 className="w-12 h-12 animate-spin mb-6" /><p className="font-bold text-lg animate-pulse">{pipelineStatus || '正在處理...'}</p><div className="mt-4 w-64 h-1 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-indigo-500 animate-progress"></div></div>{/* 重置按鈕(Loading時也可按) */}<button onClick={handleReset} className="mt-6 bg-slate-200 hover:bg-slate-300 text-slate-600 px-4 py-2 rounded-full text-xs transition-colors">取消並重置</button></div>)}
             </div>
-            <div className="w-full md:w-80 bg-white border-l border-slate-200 p-6 flex flex-col gap-6 shrink-0 overflow-y-auto">
+            <div className={`bg-white border-l border-slate-200 p-6 flex flex-col gap-6 shrink-0 ${isMobileMode ? 'w-full h-auto overflow-visible' : 'w-full md:w-80 h-full overflow-y-auto'}`}>
                 <div>
                     <h3 className="text-slate-800 font-bold flex items-center text-lg mb-4"><User className="w-5 h-5 mr-2 text-indigo-500" /> 穿戴情境模擬</h3>
                     <div className="mb-6 border-b border-slate-100 pb-6">
@@ -1500,7 +1504,7 @@ baseImgForComposite = await callGeminiImg2Img(scenePrompt, landscapeFace);
     );
 };
 
-const LaserSimulator = ({ designerState, updateDesignerState }) => {
+const LaserSimulator = ({ isMobileMode, designerState, updateDesignerState }) => {
     const mountRef = useRef(null);
     const canvasContainerRef = useRef(null);
     const [simMode, setSimMode] = useState('dither'); 
@@ -1680,13 +1684,13 @@ const LaserSimulator = ({ designerState, updateDesignerState }) => {
     };
 
     return (
-        <div className="flex flex-row h-full w-full bg-slate-900 rounded-xl overflow-hidden shadow-2xl relative border border-slate-700">
-            <div className="flex-1 relative bg-slate-900" ref={mountRef}>
+        <div className={`flex ${isMobileMode ? 'flex-col overflow-y-auto' : 'flex-col md:flex-row overflow-hidden'} h-full w-full bg-slate-900 rounded-xl shadow-2xl relative border border-slate-700`}>
+            <div className={`relative bg-slate-900 ${isMobileMode ? 'h-[400px] shrink-0' : 'flex-1'}`} ref={mountRef}>
                 {isGenerating && (<div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-900/80 backdrop-blur text-slate-300"><Loader2 className="w-10 h-10 animate-spin mb-4 text-indigo-500" /><p>正在渲染 3D 場景...</p></div>)}
                 <div className="absolute top-4 left-4 z-10 bg-black/40 backdrop-blur px-3 py-1 rounded-full text-xs text-slate-300 pointer-events-none border border-white/10 shadow-sm">左鍵拖曳旋轉 • 滾輪縮放</div>
                 <div ref={canvasContainerRef} className="absolute inset-0 w-full h-full z-0" />
             </div>
-            <div className="w-80 bg-white border-l border-slate-200 p-6 flex flex-col gap-6 shrink-0 overflow-y-auto">
+            <div className={`bg-white border-l border-slate-200 p-6 flex flex-col gap-6 shrink-0 ${isMobileMode ? 'w-full h-auto overflow-visible' : 'w-80 h-full overflow-y-auto'}`}>
                 <div>
                     <h3 className="text-slate-800 font-bold flex items-center text-lg mb-4"><Zap className="w-5 h-5 mr-2 text-yellow-500" /> 3D預覽</h3>
                     <div className="bg-indigo-50 p-3 rounded-xl border border-indigo-100 mb-6">
@@ -1704,7 +1708,7 @@ const LaserSimulator = ({ designerState, updateDesignerState }) => {
     );
 };
 
-const ArmyTagDesigner = ({ user, isLoggedIn, handleLogin, isGapiLoaded, persistentState, updatePersistentState }) => {
+const ArmyTagDesigner = ({isMobileMode, user, isLoggedIn, handleLogin, isGapiLoaded, persistentState, updatePersistentState }) => {
   const { sides, currentSide, nanoPrompt, driveFileId, driveShareLink, zoomLevel, pan, fontCategory } = persistentState;
   const layers = sides[currentSide] || [];
   const [showShareModal, setShowShareModal] = useState(false);
@@ -2048,7 +2052,7 @@ const ArmyTagDesigner = ({ user, isLoggedIn, handleLogin, isGapiLoaded, persiste
   const alignLayer = (id, type) => { updateLayer(id, { x: type === 'horizontal' ? 0 : (selectedLayer?.x || 0), y: type === 'vertical' ? 0 : (selectedLayer?.y || 0) }); };
 
   return (
-    <div className="flex-1 flex flex-col md:flex-row gap-6 overflow-hidden relative z-10 w-full h-full" onMouseMove={handleGlobalMouseMove} onMouseUp={handleGlobalMouseUp} onMouseLeave={handleGlobalMouseUp}>
+    <div className={`flex-1 flex ${isMobileMode ? 'flex-col overflow-y-auto' : 'flex-col md:flex-row overflow-hidden'} gap-6 relative z-10 w-full h-full`} onMouseMove={handleGlobalMouseMove} onMouseUp={handleGlobalMouseUp} onMouseLeave={handleGlobalMouseUp}>
       {showShareModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
@@ -2062,7 +2066,7 @@ const ArmyTagDesigner = ({ user, isLoggedIn, handleLogin, isGapiLoaded, persiste
             </div>
         </div>
       )}
-      <div className="flex-1 flex flex-col min-w-0 h-full">
+      <div className={`flex flex-col min-w-0 ${isMobileMode ? 'h-[500px] shrink-0' : 'flex-1 h-full'}`}>
         <div className="bg-white/80 backdrop-blur-md rounded-2xl p-1 border border-white/50 shadow-xl relative overflow-hidden flex-grow flex flex-col select-none h-full">
           <div ref={viewportRef} className={`relative flex-1 overflow-hidden cursor-${effectiveHandMode ? 'grab' : 'default'} bg-[#e5e7eb]`} onMouseDown={handleCanvasMouseDown} style={{ touchAction: 'none' }}>
             <div className="absolute inset-0 opacity-20 pointer-events-none" style={{backgroundImage: 'linear-gradient(#9ca3af 1px, transparent 1px), linear-gradient(90deg, #9ca3af 1px, transparent 1px)', backgroundSize: '20px 20px', backgroundPosition: `${pan.x}px ${pan.y}px`}}></div>
@@ -2125,7 +2129,7 @@ const ArmyTagDesigner = ({ user, isLoggedIn, handleLogin, isGapiLoaded, persiste
           </div>
         </div>
       </div>
-      <div className="w-full md:w-[420px] flex flex-col gap-4 overflow-hidden h-full">
+      <div className={`flex flex-col gap-4 ${isMobileMode ? 'w-full h-auto overflow-visible px-4 pb-10' : 'w-full md:w-[420px] h-full overflow-hidden'}`}>
         <div className="flex-1 overflow-y-auto space-y-4 pr-1 pb-4 overscroll-contain">
             <div className="bg-white/80 backdrop-blur-md p-4 rounded-2xl border border-white/50 shadow-lg shrink-0">
               <h3 className="text-sm font-bold text-indigo-600 uppercase tracking-wider mb-3 flex items-center justify-between"><span className="flex items-center"><Zap className="w-4 h-4 mr-2" /> AI 智能生成 (Gemini)</span><button onClick={handleGeminiEnhancePrompt} disabled={!nanoPrompt || isEnhancingPrompt} className="text-indigo-400 hover:text-indigo-600 p-1 rounded hover:bg-indigo-50" title="Gemini Magic"><Sparkles className="w-4 h-4" /></button></h3>
@@ -2293,7 +2297,7 @@ const SCENE_OPTIONS = [
     },
 ];
 
-const ProductPreview = ({ designerState }) => {
+const ProductPreview = ({ isMobileMode, designerState }) => {
     const [generatedImage, setGeneratedImage] = useState(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [selectedScene, setSelectedScene] = useState('marble'); 
@@ -2405,9 +2409,9 @@ const ProductPreview = ({ designerState }) => {
     const currentSceneName = SCENE_OPTIONS.find(s => s.id === selectedScene)?.name;
 
     return (
-        <div className="flex flex-col md:flex-row h-full w-full bg-slate-900 rounded-xl overflow-hidden shadow-2xl relative border border-slate-700">
+        <div className={`flex ${isMobileMode ? 'flex-col overflow-y-auto' : 'flex-col md:flex-row overflow-hidden'} h-full w-full bg-slate-900 rounded-xl shadow-2xl relative border border-slate-700`}>
             {/* 左側：預覽區域 */}
-            <div className="flex-1 bg-black relative flex items-center justify-center overflow-hidden">
+            <div className={`bg-black relative flex items-center justify-center overflow-hidden ${isMobileMode ? 'h-[400px] shrink-0' : 'flex-1'}`}>
                 {generatedImage ? (
                     <div className="relative w-full h-full flex items-center justify-center">
                         <img src={generatedImage} alt="Product Shot" className="max-w-full max-h-full object-contain shadow-2xl" />
@@ -2459,7 +2463,7 @@ const ProductPreview = ({ designerState }) => {
             </div>
 
             {/* 右側：控制面板 */}
-            <div className="w-full md:w-80 bg-slate-800 border-l border-slate-700 p-6 flex flex-col gap-6 shrink-0 overflow-y-auto">
+            <div className={`bg-slate-800 border-l border-slate-700 p-6 flex flex-col gap-6 shrink-0 ${isMobileMode ? 'w-full h-auto overflow-visible' : 'w-full md:w-80 h-full overflow-y-auto'}`}>
                 <div>
                     <h3 className="text-white font-bold flex items-center text-lg mb-4">
                         <Camera className="w-5 h-5 mr-2 text-indigo-400" /> 
@@ -3010,7 +3014,7 @@ export default function App() {
   const [showNavMenu, setShowNavMenu] = useState(false);
   // 新增：控制桌面版側邊欄展開/收起的狀態
   const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
-  
+  const [isMobileMode, setIsMobileMode] = useState(false);
   const [isGapiLoaded, setIsGapiLoaded] = useState(false);
   const [isGisLoaded, setIsGisLoaded] = useState(false);
   const [tokenClient, setTokenClient] = useState(null);
@@ -3070,14 +3074,17 @@ export default function App() {
   const handleLogin = () => { tokenClient ? tokenClient.requestAccessToken() : alert("Google API 未初始化"); };
 
   const renderContent = () => {
+    // 【修改 B】傳遞 isMobileMode 並設定 key 以強制重繪
+    const commonProps = { isMobileMode, key: isMobileMode ? 'mobile' : 'desktop' };
+    
     switch (activeTool) {
-      case 'designer': return (<ArmyTagDesigner user={user} isLoggedIn={isLoggedIn} handleLogin={handleLogin} isGapiLoaded={isGapiLoaded} persistentState={designerState} updatePersistentState={updateDesignerState} />);
-      case 'laser': return <LaserSimulator designerState={designerState} updateDesignerState={updateDesignerState} />;
-      case 'wearable': return <WearableSimulator designerState={designerState} />;
+      case 'designer': return (<ArmyTagDesigner {...commonProps} user={user} isLoggedIn={isLoggedIn} handleLogin={handleLogin} isGapiLoaded={isGapiLoaded} persistentState={designerState} updatePersistentState={updateDesignerState} />);
+      case 'laser': return <LaserSimulator {...commonProps} designerState={designerState} updateDesignerState={updateDesignerState} />;
+      case 'wearable': return <WearableSimulator {...commonProps} designerState={designerState} />;
+      case 'product_preview': return <ProductPreview {...commonProps} designerState={designerState} />;
+      case 'coded_art': return <CodedArt {...commonProps} />;
       case 'info': return <InfoPage onNavigate={setActiveTool} />;
       case 'feedback': return <FeedbackPage />;
-      case 'product_preview': return <ProductPreview designerState={designerState} />;
-      // 【修改】渲染全新的 HomePage，並傳入導航函式以便按鈕運作
       case 'home': return <HomePage onNavigate={setActiveTool} />;
       default: return <ToolPlaceholder title="未知頁面" icon={Wrench} description="找不到此工具。" />;
     }
@@ -3109,6 +3116,13 @@ export default function App() {
             <h1 className="text-lg font-bold text-white tracking-wide hidden sm:block">專屬軍牌設計器</h1>
           </div>
           <div className="flex items-center gap-2">
+          <button 
+                onClick={() => setIsMobileMode(!isMobileMode)} 
+                className="p-2 text-white hover:bg-white/10 rounded-lg transition-colors border border-transparent hover:border-white/20"
+                title={isMobileMode ? "切換回電腦版 (寬螢幕)" : "切換至手機版 (垂直排列)"}
+            >
+                {isMobileMode ? <Monitor className="w-5 h-5" /> : <Smartphone className="w-5 h-5" />}
+            </button>
             {!isLoggedIn ? (
                <button onClick={handleLogin} disabled={!isGisLoaded} className="bg-white text-red-700 hover:bg-red-50 px-4 py-2 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center">
                  <LogIn className="w-3 h-3 mr-2" /> 登入 Google
@@ -3218,5 +3232,6 @@ export default function App() {
       </div>
     </div>
   );
+}
 }
         
