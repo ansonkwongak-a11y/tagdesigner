@@ -3023,44 +3023,40 @@ const FeedbackPage = () => {
     );
 };
 // --- 新增：首頁 (品牌形象影片 + 社群連結) ---
-const HomePage = ({ onNavigate }) => {
-    // 【修改】固定影片網址 (請將此處替換為您的宣傳影片連結，例如 .mp4 檔案網址)
-    // 【修改】將結尾的 dl=0 改為 dl=1，這是 Dropbox 的直連參數
+// --- 新增：首頁 (品牌形象影片 + 社群連結) ---
+const HomePage = ({ isMobileMode, onNavigate }) => {
+    // 【修改】固定影片網址 (Dropbox 直連)
     const videoSrc = "https://www.dropbox.com/scl/fi/m1ch33e08cttntoojebln/fa5bfa05-086f-4d07-a64c-1b28c5caf2f4.mp4?rlkey=gmstsny48t5h9snbio5eaoqgx&st=doibkfdv&dl=1";
+
     return (
-        <div className="flex-1 h-full relative overflow-hidden flex flex-col items-center justify-center bg-black text-white group/home">
-            {/* 1. 背景影片層 */}
-            <div className="absolute inset-0 z-0">
+        // 【修改 2】外層容器：手機版允許捲動 (overflow-y-auto)，電腦版鎖定 (overflow-hidden)
+        <div className={`flex-1 h-full relative flex flex-col items-center justify-center bg-black text-white group/home ${isMobileMode ? 'overflow-y-auto' : 'overflow-hidden'}`}>
+            {/* 1. 背景影片層 (固定不動) */}
+            <div className="absolute inset-0 z-0 fixed-background">
                 <video 
+                    key={videoSrc} // 加入 key 確保網址變更時重載
                     autoPlay 
                     loop 
                     muted 
                     playsInline 
-                    // 【修改 1】將 opacity-50 改為 opacity-80 (讓影片更亮、更清楚)
-                    className="w-full h-full object-cover opacity-50"
+                    className="w-full h-full object-cover opacity-80"
                 >
                     <source src={videoSrc} type="video/mp4" />
                 </video>
                 
-                {/* 漸層遮罩，讓文字更清晰 */}
-                {/* 【修改 2】大幅降低黑色濃度：
-                    from-black/80 -> from-black/40 (頂部變淺)
-                    via-black/20 -> via-black/0 (中間全透明)
-                    to-black/90 -> to-black/60 (底部變淺) 
-                */}
+                {/* 漸層遮罩 */}
                 <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/0 to-black/60"></div>
                 
-                {/* 網點紋理 (增加戰術感) */}
-                {/* 【修改 3】將 opacity-20 改為 opacity-10 (讓網點更隱約，不擋視線) */}
+                {/* 網點紋理 */}
                 <div className="absolute inset-0 opacity-10 pointer-events-none" style={{backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', backgroundSize: '30px 30px'}}></div>
             </div>
 
             {/* 2. 主要內容層 */}
-            <div className="relative z-10 flex flex-col items-center justify-between h-full w-full max-w-6xl py-12 px-6">
+            {/* 【修改 3】內容容器：改為 min-h-full，確保在手機上內容多時可以延伸捲動，不會被切掉 */}
+            <div className={`relative z-10 flex flex-col items-center justify-between w-full max-w-6xl py-12 px-6 ${isMobileMode ? 'min-h-full' : 'h-full'}`}>
                 
-                {/* 頂部文字區 (取代原本的 DTR Logo) */}
+                {/* 頂部文字區 */}
                 <div className="mt-16 text-center animate-in slide-in-from-top-10 duration-1000 flex flex-col items-center">
-                    {/* 【修改】將標語移至最上方，並放大作為主視覺 */}
                     <h1 className="text-4xl md:text-6xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white to-slate-400 drop-shadow-2xl mb-4 leading-tight">
                         個人化設計 X MOPA 彩色雷雕
                     </h1>
@@ -3069,8 +3065,8 @@ const HomePage = ({ onNavigate }) => {
                     </p>
                 </div>
 
-                {/* 中間行動呼籲區 (只保留按鈕) */}
-                <div className="flex flex-col items-center gap-8 animate-in zoom-in-95 duration-1000 delay-200">
+                {/* 中間行動呼籲區 */}
+                <div className="flex flex-col items-center gap-8 animate-in zoom-in-95 duration-1000 delay-200 py-8">
                     <button 
                         onClick={() => onNavigate('designer')}
                         className="group relative px-10 py-5 bg-white text-black rounded-full overflow-hidden transition-all hover:scale-105 shadow-[0_0_50px_rgba(255,255,255,0.3)]"
@@ -3082,10 +3078,9 @@ const HomePage = ({ onNavigate }) => {
                     </button>
                 </div>
 
-                {/* 底部社群連結區 (保持不變) */}
-                <div className="w-full flex flex-col items-center gap-4 animate-in slide-in-from-bottom-10 duration-1000 delay-500">
+                {/* 底部社群連結區 */}
+                <div className="w-full flex flex-col items-center gap-4 animate-in slide-in-from-bottom-10 duration-1000 delay-500 pb-4">
                     <div className="flex items-center gap-6">
-                        {/* Instagram Link */}
                         <a href="https://www.instagram.com/dogtag_rebels/" target="_blank" rel="noreferrer" className="group flex flex-col items-center gap-2 text-slate-400 hover:text-pink-500 transition-colors">
                             <div className="p-3 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl group-hover:border-pink-500/50 group-hover:bg-pink-500/10 transition-all">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></svg>
@@ -3093,7 +3088,6 @@ const HomePage = ({ onNavigate }) => {
                             <span className="text-[10px] tracking-widest font-bold opacity-0 group-hover:opacity-100 transition-opacity transform -translate-y-2 group-hover:translate-y-0">INSTAGRAM</span>
                         </a>
 
-                        {/* Threads Link */}
                         <a href="https://www.threads.com/@dogtag_rebels?xmt=AQF0Wg8rcGD4si5b_3mouJTS0FqPDbVVtUHidGRD8aF8SqU" target="_blank" rel="noreferrer" className="group flex flex-col items-center gap-2 text-slate-400 hover:text-white transition-colors">
                             <div className="p-3 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl group-hover:border-white/50 group-hover:bg-white/10 transition-all">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12a7 7 0 1 1-7-7c1.57 0 3 .5 4.09 1.36 1.1.86 1.91 2.14 1.91 3.64 0 1.29-.68 2.5-2 2.5s-2-1.21-2-2.5c0-2.38 2.55-3.5 5.5-3.5 2.5 0 3.5 1.5 3.5 3.5a9 9 0 0 1-9 9 9 9 0 1 1 9-9"/></svg>
@@ -3182,7 +3176,8 @@ export default function App() {
       case 'coded_art': return <CodedArt {...commonProps} />;
       case 'info': return <InfoPage onNavigate={setActiveTool} />;
       case 'feedback': return <FeedbackPage />;
-      case 'home': return <HomePage onNavigate={setActiveTool} />;
+      // 【修改 1】補上 commonProps，確保切換模式時會強制重繪影片，解決黑屏問題
+      case 'home': return <HomePage {...commonProps} onNavigate={setActiveTool} />;
       default: return <ToolPlaceholder title="未知頁面" icon={Wrench} description="找不到此工具。" />;
     }
   };
