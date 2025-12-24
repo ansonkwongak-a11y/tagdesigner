@@ -39,6 +39,7 @@ const ArrowUp = (p) => <IconBase {...p}><line x1="12" y1="19" x2="12" y2="5"/><p
 const ArrowDown = (p) => <IconBase {...p}><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></IconBase>;
 // --- 👇👇👇 請補上這行遺失的圖示定義 👇👇👇 ---
 const ChevronDown = (p) => <IconBase {...p}><polyline points="6 9 12 15 18 9"/></IconBase>;
+const MessageSquare = (p) => <IconBase {...p}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></IconBase>;
 // --- 👆👆👆 補上這行 👆👆👆 ---
 const Type = (p) => <IconBase {...p}><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></IconBase>;
 const HandIcon = (p) => <IconBase {...p}><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></IconBase>;
@@ -1320,7 +1321,7 @@ baseImgForComposite = await callGeminiImg2Img(scenePrompt, landscapeFace);
                         <h4 className="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wider">1. 選擇模特兒 (換臉可選)</h4>
                         <div className="mb-4">
                              <div className="flex items-center gap-4">
-                                <div className="w-16 h-16 bg-slate-100 rounded-full border-2 border-slate-200 overflow-hidden flex items-center justify-center shrink-0">{faceImage ? <img src={faceImage} className="w-full h-full object-cover" alt="User Face" /> : <UserPlus className="w-6 h-6 text-slate-400" />}</div>
+                                <div className="w-16 h-16 bg-slate-100 rounded-full border-2 border-slate-200 overflow-hidden flex items-center justify-center shrink-0">{faceImage ? <img src={faceImage} className="w-full h-full object-cover" /> : <UserPlus className="w-6 h-6 text-slate-400" />}</div>
                                 <label className="flex-1 cursor-pointer">
                                     <div className="bg-white hover:bg-slate-50 border border-indigo-200 text-indigo-600 text-xs font-bold py-2 px-3 rounded-lg flex items-center justify-center transition-colors shadow-sm"><Upload className="w-3 h-3 mr-2" /> 選擇自拍照片</div>
                                     <input type="file" accept="image/*" className="hidden" onChange={handleFaceUpload} />
@@ -1722,7 +1723,11 @@ const ArmyTagDesigner = ({ user, isLoggedIn, handleLogin, isGapiLoaded, persiste
   const [showGuides, setShowGuides] = useState({ x: false, y: false });
   const [isGeneratingQuote, setIsGeneratingQuote] = useState(false);
   const [showSaveOptions, setShowSaveOptions] = useState(false); 
-  const [refImage, setRefImage] = useState(null); // 新增參考圖狀態
+  const [refImage, setRefImage] = useState(null); 
+  
+  // 【修改 1】新增：儲存最後一次 AI 生成的原圖 (用於獨立下載)
+  const [lastAiImage, setLastAiImage] = useState(null);
+  
   const viewportRef = useRef(null);
 
   // 【修改 1】加入 API Key 視窗控制狀態
@@ -1829,14 +1834,16 @@ const ArmyTagDesigner = ({ user, isLoggedIn, handleLogin, isGapiLoaded, persiste
             // 如果是物件模式，嘗試自動去背
             if (aiGenMode === 'object') { 
                 setIsProcessingBg(true); 
-                // 這裡的去背也可能耗時，保持 loading 狀態
                 finalImageUrl = await removeWhiteBackground(imageUrl); 
                 setIsProcessingBg(false); 
             } else { 
                 isAiBg = true; 
             } 
 
-            const img = new Image(); 
+            // 【修改 2】將處理好的原圖 (無軍牌背景) 存入狀態，供按鈕下載
+            setLastAiImage(finalImageUrl);
+
+            const img = new Image();
             img.onload = () => { 
                 const layout = calculateFillScale(img.width, img.height); 
                 const newId = `ai-gen-${Date.now()}`; 
@@ -2148,7 +2155,22 @@ const ArmyTagDesigner = ({ user, isLoggedIn, handleLogin, isGapiLoaded, persiste
               </div>
 
               <div className="flex space-x-2 mb-2"><div className="relative flex-1"><input value={nanoPrompt} onChange={(e) => setNanoPrompt(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg pl-3 pr-8 py-2 text-slate-800 text-sm focus:border-indigo-500 outline-none shadow-sm" placeholder={refImage ? "描述要如何修改這張圖 (留空則生成變體)..." : "描述內容..."} />{nanoPrompt && (<button onClick={() => setNanoPrompt('')} className="absolute right-1 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1.5 hover:bg-slate-100 rounded-full transition-colors" title="清除文字"><X className="w-3 h-3" /></button>)}</div><button onClick={handleNanoGenerate} disabled={isGeneratingUV || (!nanoPrompt && !refImage)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg text-sm transition-colors disabled:opacity-50 whitespace-nowrap shadow-md min-w-[60px] flex items-center justify-center">{isGeneratingUV ? <Loader2 className="w-4 h-4 animate-spin" /> : "生成"}</button></div>
-              
+              {lastAiImage && (
+                  <div className="mb-3 p-2 bg-green-50 rounded-lg border border-green-100 flex justify-between items-center animate-in fade-in slide-in-from-top-2">
+                      <div className="flex items-center overflow-hidden">
+                          <div className="w-8 h-8 rounded bg-white border border-green-200 mr-2 flex-shrink-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9IjgiPjxyZWN0IHdpZHRoPSI4IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmYiLz48cGF0aCBkPSJNMCAwSDhWOFgwWiIgZmlsbD0iI2VlZSIvPjwvc3ZnPg==')]">
+                              <img src={lastAiImage} className="w-full h-full object-contain" alt="AI Result" />
+                          </div>
+                          <span className="text-[10px] text-green-700 font-medium truncate">AI 圖片已生成</span>
+                      </div>
+                      <button 
+                          onClick={() => { const link = document.createElement('a'); link.download = `AI_Raw_${Date.now()}.png`; link.href = lastAiImage; link.click(); }} 
+                          className="text-[10px] bg-white border border-green-200 text-green-700 hover:bg-green-600 hover:text-white px-3 py-1.5 rounded-md font-bold transition-all flex items-center shadow-sm whitespace-nowrap"
+                      >
+                          <HardDrive className="w-3 h-3 mr-1" /> 下載原圖
+                      </button>
+                  </div>
+              )}
               {/* 【修改 3】顯示設計器專用額度 */}
               {!localStorage.getItem('USER_GEMINI_KEY') && (
                   <p className="text-[10px] text-slate-400 text-center mb-2">
@@ -2161,7 +2183,7 @@ const ArmyTagDesigner = ({ user, isLoggedIn, handleLogin, isGapiLoaded, persiste
             </div>
             <div className="bg-white/80 backdrop-blur-md rounded-2xl border border-white/50 shadow-lg flex flex-col overflow-hidden">
                 <div className="p-4 border-b border-slate-100 shrink-0 flex justify-between items-center"><h3 className="text-sm font-bold text-slate-600 uppercase tracking-wider flex items-center"><Layers className="w-4 h-4 mr-2" /> 圖層 ({layers.length})</h3><div className="flex space-x-1"><button onClick={() => addTextLayer()} className="p-1.5 bg-slate-100 hover:bg-slate-200 rounded text-slate-600 transition-colors"><Type className="w-4 h-4" /></button><label className="p-1.5 bg-slate-100 hover:bg-slate-200 rounded text-slate-600 cursor-pointer transition-colors"><ImageIcon className="w-4 h-4" /><input type="file" className="hidden" accept="image/*" onChange={(e) => { if (e.target.files?.[0]) addImageLayer(e.target.files[0]); }} /></label></div></div>
-                <div className="max-h-[150px] overflow-y-auto p-2 space-y-2 border-b border-slate-100 overscroll-contain">{[...layers].reverse().map((layer) => (<div key={layer.id} onClick={() => setSelectedId(layer.id)} className={`flex items-center p-2 rounded-lg border cursor-pointer transition-all group ${selectedId === layer.id ? 'bg-indigo-50 border-indigo-200 shadow-sm' : 'bg-transparent border-transparent hover:bg-slate-50'}`}><div className="w-10 h-10 bg-slate-100 rounded flex items-center justify-center text-slate-500 mr-3 border border-slate-200 overflow-hidden shrink-0">{layer.type === 'text' ? <span className="font-serif font-bold text-lg">T</span> : <img src={layer.content} className="w-full h-full object-cover" alt="Layer Preview"/>}</div><div className="flex-1 min-w-0"><p className="text-sm font-medium text-slate-700 truncate">{layer.type === 'text' ? layer.content : 'Image Layer'}</p><p className="text-[10px] text-slate-400">{layer.type === 'text' ? 'Text Object' : 'Raster Image'}</p></div><div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity space-x-1"><button onClick={(e) => {e.stopPropagation(); moveLayerOrder(layer.id, 'up')}} className="p-1 hover:bg-slate-200 rounded text-slate-500"><ArrowUp className="w-3 h-3"/></button><button onClick={(e) => {e.stopPropagation(); moveLayerOrder(layer.id, 'down')}} className="p-1 hover:bg-slate-200 rounded text-slate-500"><ArrowDown className="w-3 h-3"/></button><button onClick={(e) => {e.stopPropagation(); deleteLayer(layer.id)}} className="p-1 hover:bg-red-50 hover:text-red-500 rounded text-slate-400"><Trash2 className="w-3 h-3"/></button></div></div>))}</div>
+                <div className="max-h-[150px] overflow-y-auto p-2 space-y-2 border-b border-slate-100 overscroll-contain">{[...layers].reverse().map((layer) => (<div key={layer.id} onClick={() => setSelectedId(layer.id)} className={`flex items-center p-2 rounded-lg border cursor-pointer transition-all group ${selectedId === layer.id ? 'bg-indigo-50 border-indigo-200 shadow-sm' : 'bg-transparent border-transparent hover:bg-slate-50'}`}><div className="w-10 h-10 bg-slate-100 rounded flex items-center justify-center text-slate-500 mr-3 border border-slate-200 overflow-hidden shrink-0">{layer.type === 'text' ? <span className="font-serif font-bold text-lg">T</span> : <img src={layer.content} className="w-full h-full object-cover"/>}</div><div className="flex-1 min-w-0"><p className="text-sm font-medium text-slate-700 truncate">{layer.type === 'text' ? layer.content : 'Image Layer'}</p><p className="text-[10px] text-slate-400">{layer.type === 'text' ? 'Text Object' : 'Raster Image'}</p></div><div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity space-x-1"><button onClick={(e) => {e.stopPropagation(); moveLayerOrder(layer.id, 'up')}} className="p-1 hover:bg-slate-200 rounded text-slate-500"><ArrowUp className="w-3 h-3"/></button><button onClick={(e) => {e.stopPropagation(); moveLayerOrder(layer.id, 'down')}} className="p-1 hover:bg-slate-200 rounded text-slate-500"><ArrowDown className="w-3 h-3"/></button><button onClick={(e) => {e.stopPropagation(); deleteLayer(layer.id)}} className="p-1 hover:bg-red-50 hover:text-red-500 rounded text-slate-400"><Trash2 className="w-3 h-3"/></button></div></div>))}</div>
             </div>
             {selectedLayer && (
                 <div className="bg-white/80 backdrop-blur-md rounded-2xl border border-white/50 shadow-lg p-4">
@@ -2271,13 +2293,39 @@ const SCENE_OPTIONS = [
     },
 ];
 
-// --- 更新：功能更強大的商品預覽元件 ---
 const ProductPreview = ({ designerState }) => {
     const [generatedImage, setGeneratedImage] = useState(null);
     const [isGenerating, setIsGenerating] = useState(false);
-    const [selectedScene, setSelectedScene] = useState('marble'); // 預設選擇大理石
+    const [selectedScene, setSelectedScene] = useState('marble'); 
+    
+    // 【修改 1】新增：自定義場景狀態
+    const [customScenePrompt, setCustomScenePrompt] = useState('');
+    const [isEnhancing, setIsEnhancing] = useState(false);
 
-const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+    // 【修改 2】新增：AI 魔法擴寫函式 (把簡單關鍵字變成專業攝影描述)
+    const handleEnhanceScene = async () => {
+        if (!customScenePrompt.trim()) return;
+        setIsEnhancing(true);
+        try {
+            const prompt = `
+                Role: Professional Product Photography Art Director.
+                Task: Convert the user's short input: "${customScenePrompt}" into a high-end background description for a metal jewelry shot.
+                Requirements:
+                1. Focus on lighting, texture, and atmosphere.
+                2. Keep it concise (under 30 words).
+                3. Output ONLY the description in English.
+            `;
+            const result = await callGeminiText(prompt);
+            if (result) setCustomScenePrompt(result.trim());
+        } catch (e) {
+            console.error("Enhance Error", e);
+        } finally {
+            setIsEnhancing(false);
+        }
+    };
+
+    const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+    // ... (後續程式碼保持不變)
 
     const handleSaveKey = (userKey) => {
         localStorage.setItem('USER_GEMINI_KEY', userKey.trim());
@@ -2309,7 +2357,10 @@ const [showApiKeyModal, setShowApiKeyModal] = useState(false);
 
             // 取得目前選擇的場景設定
             const sceneConfig = SCENE_OPTIONS.find(s => s.id === selectedScene) || SCENE_OPTIONS[0];
-
+// 【修改 3】判斷使用自定義場景還是預設場景
+            const backgroundDescription = customScenePrompt.trim() 
+                ? `Custom Environment: ${customScenePrompt}. High-end commercial photography style.` 
+                : sceneConfig.promptPart;
             // 2. 建構商品攝影 Prompt (Prompt Engineering)
             const prompt = `
                 Professional High-End Jewelry Photography, Macro Shot.
@@ -2322,7 +2373,7 @@ const [showApiKeyModal, setShowApiKeyModal] = useState(false);
                 - This rule applies to ALL backgrounds (Marble, Leather, Wood, Silk, etc.).
                 
                 Background & Atmosphere:
-                - ${sceneConfig.promptPart}
+                - ${backgroundDescription}
                 - The atmosphere is expensive, high-end, and sophisticated.
                 
                 Lighting & Texture:
@@ -2430,7 +2481,34 @@ const [showApiKeyModal, setShowApiKeyModal] = useState(false);
                             ))}
                         </div>
                     </div>
-
+{/* 【修改 4】新增：自定義 AI 場景輸入區 */}
+                    <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 mb-6">
+                        <h4 className="text-xs font-bold text-indigo-800 mb-3 uppercase tracking-wider flex items-center justify-between">
+                            <span>2. 或 自定義 AI 場景</span>
+                            <Sparkles className="w-3 h-3 text-indigo-500 animate-pulse"/>
+                        </h4>
+                        <div className="flex gap-2">
+                            <input 
+                                type="text" 
+                                value={customScenePrompt} 
+                                onChange={(e) => setCustomScenePrompt(e.target.value)} 
+                                placeholder="描述場景 (例: 雪山, 賽博龐克...)" 
+                                className="flex-1 text-xs p-2.5 rounded-lg border border-indigo-200 focus:border-indigo-500 outline-none bg-white text-slate-700"
+                            />
+                            <button 
+                                onClick={handleEnhanceScene} 
+                                disabled={isEnhancing || !customScenePrompt}
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white p-2.5 rounded-lg transition-colors disabled:opacity-50 shadow-sm"
+                                title="AI 魔法擴寫 (Magic Enhance)"
+                            >
+                                {isEnhancing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                            </button>
+                        </div>
+                        <p className="text-[10px] text-indigo-400 mt-2 leading-relaxed">
+                            輸入簡單關鍵字（如：火山、雨林），點擊星星讓 AI 幫您生成專業攝影描述。
+                            <br/><span className="opacity-70">* 若此欄位有文字，將優先使用此場景。</span>
+                        </p>
+                    </div>
                     <div className="space-y-4">
                         <button 
                             onClick={handleGenerate}
@@ -2646,6 +2724,202 @@ const InfoPage = ({ onNavigate }) => {
             </div>
         </div>
     );
+};// --- 新增：表達你的想法 (意見反饋頁面 - 多圖上傳版) ---
+const FeedbackPage = () => {
+    const [email, setEmail] = useState('');
+    const [idea, setIdea] = useState('');
+    // 【修改 1】改為陣列狀態，以儲存多張圖片
+    const [attachments, setAttachments] = useState([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // 【修改 2】支援多檔案選取與預覽
+    const handleImageUpload = (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
+
+        files.forEach(file => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                // 將新圖片加入陣列 (保留舊圖)
+                setAttachments(prev => [...prev, e.target.result]);
+            };
+            reader.readAsDataURL(file);
+        });
+    };
+
+    // 【新增】移除特定圖片的功能
+    const removeAttachment = (indexToRemove) => {
+        setAttachments(prev => prev.filter((_, index) => index !== indexToRemove));
+    };
+
+    const handleSubmit = async () => {
+        if (!email || !idea) {
+            alert("請填寫您的電郵與想法內容！");
+            return;
+        }
+
+        setIsSubmitting(true);
+
+        try {
+            // 1. 這裡填入您部署好的 Google Apps Script 網址
+            const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz-WYMj9HgPlPT_87BDE4s17_jqZmHXefnid9B2CA045NoS_QQ1Li5NxOTZUa_EAMKL/exec"; 
+            
+            // 檢查是否已填入網址
+            if (!SCRIPT_URL || !SCRIPT_URL.includes("script.google.com")) {
+                alert("系統設定錯誤：尚未填入 Google Script 網址。");
+                setIsSubmitting(false);
+                return;
+            }
+
+            // 2. 嘗試發送資料給 Google Script (後端寄信)
+            // mode: 'no-cors' 是必要的，雖然它會讓 response 不透明，但能允許跨域請求
+            await fetch(SCRIPT_URL, {
+                method: "POST",
+                body: JSON.stringify({ email, idea, attachments }),
+                mode: "no-cors", 
+                headers: { "Content-Type": "text/plain" }
+            });
+
+            // 3. 成功處理
+            setIsSubmitting(false);
+            setAttachments([]); 
+            setIdea(''); 
+            alert("✅ 成功！您的想法已傳送至我們的信箱。");
+
+        } catch (error) {
+            console.error("Submission Error:", error);
+            setIsSubmitting(false);
+            
+            // 4. 後備機制：如果 API 失敗，嘗試喚起 Email 軟體
+            if (confirm("自動傳送似乎遇到連線問題。是否開啟您的郵件軟體手動發送？")) {
+                const subject = encodeURIComponent("DTR App 顧客想法分享");
+                const body = encodeURIComponent(`顧客電郵: ${email}\n\n想法內容:\n${idea}\n\n(由於系統連線問題，請手動附加圖片)`);
+                
+                // 【修改】請修正這裡的 Email 為您的信箱，並移除原本的亂碼標籤
+                window.location.href = `mailto:headlighthk@gmail.com?subject=${subject}&body=${body}`;
+            }
+        }
+    };
+
+    return (
+        <div className="flex-1 h-full bg-transparent overflow-y-auto p-4 md:p-12 relative scroll-smooth group/page">
+            {/* 背景裝飾 */}
+            <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] bg-indigo-500/10 rounded-full blur-[120px] pointer-events-none animate-pulse"></div>
+            <div className="absolute bottom-[-20%] left-[-10%] w-[500px] h-[500px] bg-pink-500/10 rounded-full blur-[100px] pointer-events-none animate-pulse" style={{animationDelay: '1.5s'}}></div>
+            
+            <div className="max-w-2xl mx-auto relative z-10 pb-24">
+                {/* 標題區塊 */}
+                <div className="text-center mb-10 animate-in slide-in-from-bottom-4 duration-700">
+                    <div className="inline-flex p-1 rounded-full bg-gradient-to-r from-indigo-500 to-pink-500 mb-6 shadow-lg shadow-indigo-500/20">
+                        <div className="bg-white rounded-full p-4">
+                            <Lightbulb className="w-8 h-8 text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-pink-600" />
+                        </div>
+                    </div>
+                    <h2 className="text-4xl font-black text-slate-800 mb-3 tracking-tight">表達你的想法</h2>
+                    <p className="text-slate-500 text-lg">您的創意是我們進步的動力，告訴我們您想要什麼。</p>
+                </div>
+
+                {/* 表單區塊 */}
+                <div className="bg-white/70 backdrop-blur-xl rounded-3xl p-8 border border-white/60 shadow-2xl animate-in zoom-in-95 duration-700 delay-100">
+                    <div className="space-y-6">
+                        
+                        {/* 電郵輸入 */}
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 ml-1">聯絡電郵，請填寫正確的電郵地址 (Email)</label>
+                            <div className="relative group">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-indigo-500 transition-colors">
+                                    <AtSign className="w-5 h-5" />
+                                </div>
+                                <input 
+                                    type="email" 
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    placeholder="name@example.com" 
+                                    className="w-full bg-slate-50/50 border border-slate-200 rounded-xl py-3 pl-10 pr-4 text-slate-700 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all placeholder:text-slate-400"
+                                />
+                            </div>
+                        </div>
+
+                        {/* 想法輸入 */}
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 ml-1">您的想法或是設計需求</label>
+                            <div className="relative group">
+                                <textarea 
+                                    value={idea}
+                                    onChange={(e) => setIdea(e.target.value)}
+                                    placeholder="我想做一個關於..." 
+                                    rows="5"
+                                    className="w-full bg-slate-50/50 border border-slate-200 rounded-xl p-4 text-slate-700 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all placeholder:text-slate-400 resize-none"
+                                ></textarea>
+                                <div className="absolute bottom-3 right-3 text-slate-300">
+                                    <MessageSquare className="w-5 h-5" />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 圖片上傳 (多圖版) */}
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 ml-1">
+                                參考圖片 (可多選，無上限)
+                            </label>
+                            
+                            <div className="space-y-3">
+                                {/* 圖片預覽網格 */}
+                                {attachments.length > 0 && (
+                                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 animate-in fade-in">
+                                        {attachments.map((img, idx) => (
+                                            <div key={idx} className="relative aspect-square group/img">
+                                                <img src={img} alt={`Ref ${idx}`} className="w-full h-full object-cover rounded-lg border border-slate-200 shadow-sm" />
+                                                <button 
+                                                    onClick={() => removeAttachment(idx)}
+                                                    className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover/img:opacity-100 transition-opacity shadow-md hover:scale-110"
+                                                    title="移除圖片"
+                                                >
+                                                    <X className="w-3 h-3" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* 上傳按鈕區 */}
+                                <label className={`flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-xl cursor-pointer transition-all border-slate-300 hover:border-indigo-400 hover:bg-slate-50 group`}>
+                                    <div className="flex flex-col items-center justify-center text-slate-400 group-hover:text-indigo-500">
+                                        <div className="flex items-center gap-2">
+                                            <ImageIcon className="w-5 h-5" />
+                                            <span className="text-xs font-bold">點擊新增圖片</span>
+                                        </div>
+                                        <p className="text-[10px] mt-1 opacity-70">支援 JPG, PNG (可按住 Ctrl/Shift 多選)</p>
+                                    </div>
+                                    {/* 【關鍵】加入 multiple 屬性 */}
+                                    <input type="file" className="hidden" accept="image/*" multiple onChange={handleImageUpload} />
+                                </label>
+                            </div>
+                        </div>
+
+                        {/* 提交按鈕 */}
+                        <button 
+                            onClick={handleSubmit}
+                            disabled={isSubmitting}
+                            className="w-full py-4 bg-gradient-to-r from-indigo-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 text-white rounded-xl font-bold shadow-xl shadow-indigo-500/20 flex items-center justify-center transition-all transform hover:scale-[1.02] active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed group"
+                        >
+                            {isSubmitting ? (
+                                <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                            ) : (
+                                <span className="flex items-center">
+                                    發送想法 <ChevronRight className="w-5 h-5 ml-1 group-hover:translate-x-1 transition-transform" />
+                                </span>
+                            )}
+                        </button>
+                        
+                        <p className="text-[10px] text-center text-slate-400 mt-4">
+                            您的意見將直接傳送至我們的產品團隊。
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
 };
 // --- 新增：首頁 (品牌形象影片 + 社群連結) ---
 const HomePage = ({ onNavigate }) => {
@@ -2751,10 +3025,9 @@ export default function App() {
       { id: 'designer', name: '軍牌設計器', icon: Award, description: '全功能線上客製化設計' }, 
       { id: 'laser', name: '3D預覽', icon: Zap, description: '模擬不同材質的雷射雕刻效果與參數建議' }, 
       { id: 'wearable', name: '穿戴模擬', icon: User, description: 'AI 生成模特兒佩戴情境，預覽穿搭效果' },
-      // 【新增】Q&A 頁面選單
+      { id: 'product_preview', name: '商品預覽', icon: Camera, description: '生成高品質商品情境照' },
       { id: 'info', name: '服務指南 Q&A', icon: HelpCircle, description: '設計流程、收費標準與常見問題' },
-      // 新增選單項目
-      { id: 'product_preview', name: '商品預覽', icon: Camera, description: '生成高品質商品情境照' } 
+      { id: 'feedback', name: '表達你的想法', icon: MessageSquare, description: '分享創意或客製化需求' }
   ];
 
   // 載入 Google Fonts (包含新增的 Texturina, New Rocker, Metal Mania, MedievalSharp)
@@ -2802,6 +3075,7 @@ export default function App() {
       case 'laser': return <LaserSimulator designerState={designerState} updateDesignerState={updateDesignerState} />;
       case 'wearable': return <WearableSimulator designerState={designerState} />;
       case 'info': return <InfoPage onNavigate={setActiveTool} />;
+      case 'feedback': return <FeedbackPage />;
       case 'product_preview': return <ProductPreview designerState={designerState} />;
       // 【修改】渲染全新的 HomePage，並傳入導航函式以便按鈕運作
       case 'home': return <HomePage onNavigate={setActiveTool} />;
@@ -2945,3 +3219,4 @@ export default function App() {
     </div>
   );
 }
+        
